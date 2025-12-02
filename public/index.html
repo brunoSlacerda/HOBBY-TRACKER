@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Hobby Tracker</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; }
+        .card { border: 1px solid #ccc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background-color: #28a745; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        .item-lista { background: #f9f9f9; border-bottom: 1px solid #eee; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Hobby Tracker Semanal</h1>
+
+    <div class="card">
+        <h3>Adicionar Novo Registro</h3>
+        <select id="tipo">
+            <option value="Leitura">📚 Leitura (páginas)</option>
+            <option value="Corrida">🏃‍♂️ Corrida (km)</option>
+            <option value="Treino">💪 Treino (sim/não)</option>
+            <option value="Trabalho">💼 Trabalho (tarefas)</option>
+        </select>
+        <input type="number" id="valor" placeholder="Quantidade (ex: 10)" step="0.1">
+        <input type="date" id="data">
+        <button onclick="salvarHobby()">Salvar Registro</button>
+    </div>
+
+    <div class="card">
+        <h3>Histórico da Semana</h3>
+        <div id="lista-hobbies">Carregando...</div>
+    </div>
+
+    <script>
+        // FUNÇÃO 1: Carregar a lista do servidor
+        async function carregarLista() {
+            const resposta = await fetch('/resumo');
+            const json = await resposta.json();
+            
+            const divLista = document.getElementById('lista-hobbies');
+            divLista.innerHTML = ''; // Limpa antes de preencher
+
+            json.dados.forEach(item => {
+                divLista.innerHTML += `
+                    <div class="item-lista">
+                        <strong>${item.data}</strong>: 
+                        ${item.tipo} - ${item.valor}
+                    </div>
+                `;
+            });
+        }
+
+        // FUNÇÃO 2: Salvar um novo item
+        async function salvarHobby() {
+            const tipo = document.getElementById('tipo').value;
+            const valor = document.getElementById('valor').value;
+            const data = document.getElementById('data').value;
+
+            if (!valor || !data) return alert("Preencha tudo!");
+
+            await fetch('/registrar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tipo, valor, data })
+            });
+
+            // Limpa os campos e recarrega a lista
+            document.getElementById('valor').value = '';
+            carregarLista();
+        }
+
+        // Carrega a lista assim que abrir a página
+        carregarLista();
+    </script>
+</body>
+</html>

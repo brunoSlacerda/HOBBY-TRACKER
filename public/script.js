@@ -1,23 +1,37 @@
 document.addEventListener('DOMContentLoaded', carregarLista);
 
-// Controla quais campos aparecem na tela
 function verificarTipo() {
     const tipo = document.getElementById('tipo').value;
-    
-    // Esconde tudo primeiro
-    document.getElementById('campos-livro').style.display = 'none';
-    document.getElementById('campos-corrida').style.display = 'none';
-    document.getElementById('campos-treino').style.display = 'none';
-    document.getElementById('campos-trabalho').style.display = 'none';
-
-    // Mostra só o escolhido
-    if (tipo === 'livro') document.getElementById('campos-livro').style.display = 'block';
-    if (tipo === 'corrida') document.getElementById('campos-corrida').style.display = 'block';
-    if (tipo === 'treino') document.getElementById('campos-treino').style.display = 'block';
-    if (tipo === 'trabalho') document.getElementById('campos-trabalho').style.display = 'block';
+    // Esconde tudo
+    document.querySelectorAll('.secao-hobby').forEach(el => el.style.display = 'none');
+    // Mostra o selecionado
+    if (tipo) document.getElementById(`campos-${tipo}`).style.display = 'block';
 }
 
-// Funções de Busca de Livro (Mantivemos a lógica do Google Books)
+// --- FUNÇÃO DELETAR (Genérica) ---
+async function deletarItem(tabela, id) {
+    if (!confirm("Tem certeza que quer apagar este registro?")) return;
+
+    await fetch(`/remover/${tabela}/${id}`, { method: 'DELETE' });
+    carregarLista(); // Atualiza a tela
+}
+
+// --- FUNÇÃO ATUALIZAR PÁGINA (Exclusiva de Livros) ---
+async function atualizarPagina(id, titulo) {
+    // Abre uma caixinha simples perguntando a nova página
+    const novaPagina = prompt(`📖 ${titulo}\nEm qual página você parou agora?`);
+    
+    if (novaPagina && !isNaN(novaPagina)) {
+        await fetch(`/atualizar/livro/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pagina_atual: novaPagina })
+        });
+        carregarLista();
+    }
+}
+
+// --- FUNÇÕES DE BUSCA E SALVAR (Iguais a antes) ---
 async function buscarLivro() {
     const termo = document.getElementById('busca-titulo').value;
     const divRes = document.getElementById('resultado-livro');
@@ -30,26 +44,24 @@ async function buscarLivro() {
     
     if(dados.totalItems > 0) {
         const info = dados.items[0].volumeInfo;
-        // Preenche os campos ocultos automaticamente
         document.getElementById('livro-titulo').value = info.title;
         document.getElementById('livro-autor').value = info.authors ? info.authors.join(', ') : 'Desc.';
         document.getElementById('livro-paginas').value = info.pageCount || 0;
         document.getElementById('livro-capa').value = info.imageLinks ? info.imageLinks.thumbnail : '';
-        
         divRes.innerHTML = `✅ Achei: <strong>${info.title}</strong> (${info.pageCount} págs)`;
     } else {
         divRes.innerHTML = "❌ Nada encontrado.";
     }
 }
 
-// O Grande "Salvar" que decide pra onde mandar
 async function salvarHobby() {
     const tipo = document.getElementById('tipo').value;
-    let url = '';
+    if(!tipo) return alert("Selecione um tipo!");
+
+    let url = `/registrar/${tipo}`; // A URL muda baseada no tipo (livro, corrida...)
     let corpo = {};
 
     if (tipo === 'livro') {
-        url = '/registrar/livro';
         corpo = {
             titulo: document.getElementById('livro-titulo').value,
             autor: document.getElementById('livro-autor').value,
@@ -57,27 +69,39 @@ async function salvarHobby() {
             capa: document.getElementById('livro-capa').value
         };
     } else if (tipo === 'corrida') {
-        url = '/registrar/corrida';
         corpo = {
             distancia: document.getElementById('corrida-dist').value,
             tempo: document.getElementById('corrida-tempo').value,
             tipo: document.getElementById('corrida-tipo').value,
             local: document.getElementById('corrida-local').value
         };
-    } 
-    // ... (você pode completar com treino e trabalho se quiser testar só esses 2 primeiro)
+    } else if (tipo === 'treino') {
+        corpo = {
+            foco: document.getElementById('treino-foco').value,
+            duracao: document.getElementById('treino-duracao').value,
+            carga: document.getElementById('treino-carga').value
+        };
+    } else if (tipo === 'trabalho') {
+        corpo = {
+            tarefas: document.getElementById('trab-tarefas').value,
+            produtividade: document.getElementById('trab-prod').value,
+            obs: document.getElementById('trab-obs').value
+        };
+    }
     
-    // Envia pro servidor
     await fetch(url, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(corpo)
     });
 
-    alert("Salvo com sucesso!");
+    alert("Salvo!");
+    // Limpar campos simples para facilitar
+    document.querySelectorAll('input').forEach(input => input.value = '');
     carregarLista();
 }
 
+// --- CARREGAR LISTA (Agora com Botões) ---
 async function carregarLista() {
     const resp = await fetch('/resumo');
     const dados = await resp.json();
@@ -85,15 +109,59 @@ async function carregarLista() {
     const div = document.getElementById('lista-hobbies');
     div.innerHTML = '';
 
-    // Renderiza Livros
+    // Renderiza LIVROS
     if(dados.livros.length > 0) div.innerHTML += '<h4>📚 Livros</h4>';
     dados.livros.forEach(l => {
-        div.innerHTML += `<div class="item-lista"><img src="${l.capa_url}" width="30"> <strong>${l.titulo}</strong> - ${l.pagina_atual}/${l.total_paginas} págs</div>`;
+        // Calcula porcentagem lida
+        const porcentagem = Math.round((l.pagina_atual / l.total_paginas) * 100) || 0;
+        
+        div.innerHTML += `
+            <div class="item-lista">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="${l.capa_url}" style="width:40px; border-radius:4px;">
+                    <div>
+                        <strong>${l.titulo}</strong><br>
+                        <span style="font-size:0.9em; color:#555;">
+                            Pág: ${l.pagina_atual} / ${l.total_paginas} (${porcentagem}%)
+                        </span>
+                    </div>
+                </div>
+                <div>
+                    <button onclick="atualizarPagina(${l.id}, '${l.titulo}')" style="background:#f39c12; padding:5px 10px; font-size:0.8em;">📖 Atualizar</button>
+                    <button onclick="deletarItem('livros', ${l.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
+                </div>
+            </div>`;
     });
 
-    // Renderiza Corridas
+    // Renderiza CORRIDAS
     if(dados.corridas.length > 0) div.innerHTML += '<h4>🏃‍♂️ Corridas</h4>';
     dados.corridas.forEach(c => {
-        div.innerHTML += `<div class="item-lista"><strong>${c.distancia_km}km</strong> em ${c.tempo_minutos}min (${c.tipo_treino})</div>`;
+        div.innerHTML += `
+            <div class="item-lista">
+                <div>
+                    <strong>${c.distancia_km}km</strong> - ${c.tipo_treino}<br>
+                    <small>${c.local} (${c.tempo_minutos} min)</small>
+                </div>
+                <button onclick="deletarItem('corridas', ${c.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
+            </div>`;
+    });
+
+    // Renderiza TREINOS e TRABALHO (Seguindo a mesma lógica simples)
+    if(dados.treinos.length > 0) div.innerHTML += '<h4>💪 Treinos</h4>';
+    dados.treinos.forEach(t => {
+        div.innerHTML += `
+            <div class="item-lista">
+                <div>${t.foco} (${t.duracao_min} min)</div>
+                <button onclick="deletarItem('treinos', ${t.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
+            </div>`;
+    });
+    
+    if(dados.trabalho.length > 0) div.innerHTML += '<h4>💼 Trabalho</h4>';
+    dados.trabalho.forEach(t => {
+        div.innerHTML += `
+            <div class="item-lista">
+                <div>${t.tarefas_concluidas} tarefas (Prod: ${t.nivel_produtividade}/5)</div>
+                <button onclick="deletarItem('trabalho', ${t.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
+            </div>`;
     });
 }

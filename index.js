@@ -76,6 +76,42 @@ app.get('/resumo', async (req, res) => {
     }
 });
 
+    // --- ROTA DELETAR (Serve para qualquer hobby) ---
+    // Exemplo de chamada: /remover/livros/1 ou /remover/corridas/5
+    app.delete('/remover/:tabela/:id', async (req, res) => {
+        const { tabela, id } = req.params;
+
+        // Segurança: Só aceita apagar dessas tabelas
+        const tabelasPermitidas = ['livros', 'corridas', 'treinos', 'trabalho'];
+        if (!tabelasPermitidas.includes(tabela)) {
+            return res.status(400).json({ erro: "Tabela inválida" });
+        }
+
+        try {
+            await db.query(`DELETE FROM ${tabela} WHERE id = $1`, [id]);
+            res.json({ mensagem: "Item deletado!" });
+        } catch (err) {
+            res.status(400).json({ erro: err.message });
+        }
+    });
+
+    // --- ROTA ATUALIZAR PÁGINAS (Específica para Livros) ---
+    app.put('/atualizar/livro/:id', async (req, res) => {
+        const { id } = req.params;
+        const { pagina_atual } = req.body;
+
+        try {
+            await db.query(
+                `UPDATE livros SET pagina_atual = $1, data_atualizacao = CURRENT_TIMESTAMP WHERE id = $2`,
+                [pagina_atual, id]
+            );
+            res.json({ mensagem: "Leitura atualizada!" });
+        } catch (err) {
+            res.status(400).json({ erro: err.message });
+        }
+    });
+
+
 app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
 });

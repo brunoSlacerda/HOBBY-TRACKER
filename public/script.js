@@ -67,22 +67,25 @@ function renderizarListaEspecifica(categoria) {
             // HTML do Cartão do Livro
             const htmlLivro = `
                 <div class="card-livro">
-                    <img src="${item.capa_url}" style="width:100%; height:120px; object-fit:cover; border-radius:4px; margin-bottom:5px;">
+                    <img src="${item.capa_url || 'https://via.placeholder.com/150x200?text=Sem+Capa'}" alt="${item.titulo}">
                     <strong>${item.titulo}</strong>
+                    <div style="font-size:0.75em; color:#888; margin:3px 0;">
+                        ${item.autor || 'Autor desconhecido'}
+                    </div>
                     <div style="font-size:0.8em; color:#666; margin:5px 0;">
                         ${item.pagina_atual}/${item.total_paginas} págs (${pct}%)
                     </div>
-                    <div style="background:#eee; height:5px; border-radius:3px; margin-bottom:10px;">
-                        <div style="background:${corBarra}; width:${pct}%; height:100%; border-radius:3px;"></div>
+                    <div style="background:#eee; height:6px; border-radius:3px; margin-bottom:10px;">
+                        <div style="background:${corBarra}; width:${pct}%; height:100%; border-radius:3px; transition: width 0.3s;"></div>
                     </div>
                     
-                    <div style="display:flex; justify-content:space-between;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:5px;">
                         ${item.status !== 'concluido' ? 
-                            `<button onclick="atualizarPagina(${item.id}, '${item.titulo}', ${item.total_paginas})" style="padding:5px; font-size:0.8em; width:auto;">📖</button>` : 
-                            `<span style="font-size:1.2em;">⭐ ${item.nota || '-'}</span>`
+                            `<button onclick="atualizarPagina(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.total_paginas})" title="Atualizar página">📖</button>` : 
+                            `<span style="font-size:1.1em; color:#f39c12;">⭐ ${item.nota || '-'}</span>`
                         }
-                        <button onclick="abrirModalResumo(${item.id}, '${item.titulo}', ${item.nota}, '${item.resumo || ''}')" style="padding:5px; font-size:0.8em; width:auto; background:#9b59b6;">📝</button>
-                        <button onclick="deletarItem('livros', ${item.id})" style="padding:5px; font-size:0.8em; width:auto; background:#e74c3c;">🗑️</button>
+                        <button onclick="abrirModalResumo(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.nota || ''}, '${(item.resumo || '').replace(/'/g, "\\'")}')" title="Ver/Editar resumo" style="background:#9b59b6;">📝</button>
+                        <button onclick="deletarItem('livros', ${item.id})" title="Deletar livro" style="background:#e74c3c;">🗑️</button>
                     </div>
                 </div>
             `;

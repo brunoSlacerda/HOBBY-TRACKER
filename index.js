@@ -54,10 +54,51 @@ app.post('/registrar/trabalho', async (req, res) => {
     } catch (err) { res.status(400).json({ erro: err.message }); }
 });
 
-// --- ROTA GERAL: Resumo de TUDO ---
+// --- ROTA DELETAR ---
+app.delete('/remover/:tabela/:id', async (req, res) => {
+    const { tabela, id } = req.params;
+    const tabelasPermitidas = ['livros', 'corridas', 'treinos', 'trabalho'];
+    
+    if (!tabelasPermitidas.includes(tabela)) return res.status(400).json({ erro: "Tabela inválida" });
+
+    try {
+        await db.query(`DELETE FROM ${tabela} WHERE id = $1`, [id]);
+        res.json({ mensagem: "Item deletado!" });
+    } catch (err) { res.status(400).json({ erro: err.message }); }
+});
+
+// --- ROTA ESPECIAL: Atualizar Livro (Páginas, Nota, Resumo, Status) ---
+app.put('/atualizar/livro/:id', async (req, res) => {
+    const { id } = req.params;
+    const { pagina_atual, nota, resumo, status } = req.body;
+
+    try {
+        if (pagina_atual !== undefined) {
+            await db.query(`UPDATE livros SET pagina_atual = $1, data_atualizacao = CURRENT_TIMESTAMP WHERE id = $2`, [pagina_atual, id]);
+        }
+        
+        // AQUI ESTAVA FALTANDO ou estava antigo:
+        if (status !== undefined) {
+            await db.query(`UPDATE livros SET status = $1 WHERE id = $2`, [status, id]);
+        }
+
+        if (nota !== undefined) {
+            await db.query(`UPDATE livros SET nota = $1 WHERE id = $2`, [nota, id]);
+        }
+
+        if (resumo !== undefined) {
+            await db.query(`UPDATE livros SET resumo = $1 WHERE id = $2`, [resumo, id]);
+        }
+
+        res.json({ mensagem: "Livro atualizado!" });
+    } catch (err) {
+        res.status(400).json({ erro: err.message });
+    }
+});
+
+// --- ROTA GERAL: Resumo ---
 app.get('/resumo', async (req, res) => {
     try {
-        // Fazemos 4 consultas ao mesmo tempo (Promise.all é mais rápido)
         const [livros, corridas, treinos, trabalho] = await Promise.all([
             db.query("SELECT * FROM livros ORDER BY data_atualizacao DESC"),
             db.query("SELECT * FROM corridas ORDER BY data DESC"),
@@ -71,76 +112,8 @@ app.get('/resumo', async (req, res) => {
             treinos: treinos.rows,
             trabalho: trabalho.rows
         });
-    } catch (err) {
-        res.status(400).json({ erro: err.message });
-    }
+    } catch (err) { res.status(400).json({ erro: err.message }); }
 });
-
-    // --- ROTA DELETAR (Serve para qualquer hobby) ---
-    // Exemplo de chamada: /remover/livros/1 ou /remover/corridas/5
-    app.delete('/remover/:tabela/:id', async (req, res) => {
-        const { tabela, id } = req.params;
-
-        // Segurança: Só aceita apagar dessas tabelas
-        const tabelasPermitidas = ['livros', 'corridas', 'treinos', 'trabalho'];
-        if (!tabelasPermitidas.includes(tabela)) {
-            return res.status(400).json({ erro: "Tabela inválida" });
-        }
-
-        try {
-            await db.query(`DELETE FROM ${tabela} WHERE id = $1`, [id]);
-            res.json({ mensagem: "Item deletado!" });
-        } catch (err) {
-            res.status(400).json({ erro: err.message });
-        }
-    });
-
-    // --- ROTA ATUALIZAR PÁGINAS (Específica para Livros) ---
-    app.put('/atualizar/livro/:id', async (req, res) => {
-        const { id } = req.params;
-        const { pagina_atual } = req.body;
-
-        try {
-            await db.query(
-                `UPDATE livros SET pagina_atual = $1, data_atualizacao = CURRENT_TIMESTAMP WHERE id = $2`,
-                [pagina_atual, id]
-            );
-            res.json({ mensagem: "Leitura atualizada!" });
-        } catch (err) {
-            res.status(400).json({ erro: err.message });
-        }
-    });
-
-    // --- ROTA ESPECIAL: Atualizar Livro (Páginas, Nota, Resumo, Status) ---
-    app.put('/atualizar/livro/:id', async (req, res) => {
-        const { id } = req.params;
-        const { pagina_atual, nota, resumo, status } = req.body;
-
-        // Montamos o SQL dinamicamente (só atualiza o que foi enviado)
-        // Se enviou página, atualizamos página. Se enviou resumo, atualizamos resumo.
-        try {
-            if (pagina_atual !== undefined) {
-                await db.query(`UPDATE livros SET pagina_atual = $1, data_atualizacao = CURRENT_TIMESTAMP WHERE id = $2`, [pagina_atual, id]);
-            }
-            
-            if (nota !== undefined) {
-                await db.query(`UPDATE livros SET nota = $1 WHERE id = $2`, [nota, id]);
-            }
-
-            if (resumo !== undefined) {
-                await db.query(`UPDATE livros SET resumo = $1 WHERE id = $2`, [resumo, id]);
-            }
-
-            if (status !== undefined) {
-                await db.query(`UPDATE livros SET status = $1 WHERE id = $2`, [status, id]);
-            }
-
-            res.json({ mensagem: "Livro atualizado!" });
-        } catch (err) {
-            res.status(400).json({ erro: err.message });
-        }
-    });
-
 
 app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);

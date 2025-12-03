@@ -1,66 +1,117 @@
-document.addEventListener('DOMContentLoaded', carregarLista);
+// Variável global para guardar os dados e não precisar baixar toda hora
+let cacheDados = null;
 
-function verificarTipo() {
-    const tipo = document.getElementById('tipo').value;
-    // Esconde tudo
-    document.querySelectorAll('.secao-hobby').forEach(el => el.style.display = 'none');
-    // Mostra o selecionado
-    if (tipo) document.getElementById(`campos-${tipo}`).style.display = 'block';
+document.addEventListener('DOMContentLoaded', () => {
+    carregarDadosNoCache(); // Baixa os dados assim que abre o site
+});
+
+// --- NAVEGAÇÃO ENTRE TELAS ---
+
+function voltarHome() {
+    document.getElementById('tela-detalhes').classList.remove('ativa');
+    document.getElementById('tela-home').classList.add('ativa');
 }
 
-// --- FUNÇÃO DELETAR (Genérica) ---
-async function deletarItem(tabela, id) {
-    if (!confirm("Tem certeza que quer apagar este registro?")) return;
+async function abrirDetalhes(categoria) {
+    // 1. Troca de tela
+    document.getElementById('tela-home').classList.remove('ativa');
+    document.getElementById('tela-detalhes').classList.add('ativa');
 
-    await fetch(`/remover/${tabela}/${id}`, { method: 'DELETE' });
-    carregarLista(); // Atualiza a tela
+    // 2. Atualiza o Título
+    const titulos = {
+        'livros': '📚 Meus Livros',
+        'corridas': '🏃‍♂️ Minhas Corridas',
+        'treinos': '💪 Meus Treinos',
+        'trabalho': '💼 Produtividade'
+    };
+    document.getElementById('titulo-detalhe').innerText = titulos[categoria];
+
+    // 3. Renderiza a lista específica
+    renderizarListaEspecifica(categoria);
 }
 
-// --- FUNÇÃO ATUALIZAR PÁGINA (Exclusiva de Livros) ---
-async function atualizarPagina(id, titulo) {
-    // Abre uma caixinha simples perguntando a nova página
-    const novaPagina = prompt(`📖 ${titulo}\nEm qual página você parou agora?`);
-    
-    if (novaPagina && !isNaN(novaPagina)) {
-        await fetch(`/atualizar/livro/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pagina_atual: novaPagina })
-        });
-        carregarLista();
+// --- BANCO DE DADOS E RENDERIZAÇÃO ---
+
+// Baixa tudo do servidor e guarda na memória (cache)
+async function carregarDadosNoCache() {
+    const resp = await fetch('/resumo');
+    cacheDados = await resp.json();
+    // Se estiver na tela de detalhes, atualiza ela
+    // (Útil para quando acabamos de salvar algo)
+}
+
+function renderizarListaEspecifica(categoria) {
+    const div = document.getElementById('lista-especifica');
+    div.innerHTML = '';
+
+    if (!cacheDados || !cacheDados[categoria] || cacheDados[categoria].length === 0) {
+        div.innerHTML = '<p style="text-align:center; color:#888;">Nenhum registro encontrado.</p>';
+        return;
     }
+
+    // Pega a lista certa do cache (livros, corridas, etc)
+    const lista = cacheDados[categoria];
+
+    lista.forEach(item => {
+        let htmlItem = '';
+
+        // Monta o HTML dependendo do tipo
+        if (categoria === 'livros') {
+            const pct = Math.round((item.pagina_atual / item.total_paginas) * 100) || 0;
+            htmlItem = `
+                <div class="item-lista">
+                    <div style="display:flex; gap:10px;">
+                        <img src="${item.capa_url}" style="width:40px; border-radius:4px;">
+                        <div>
+                            <strong>${item.titulo}</strong><br>
+                            <small>${item.pagina_atual}/${item.total_paginas} (${pct}%)</small>
+                        </div>
+                    </div>
+                    <div>
+                        <button onclick="atualizarPagina(${item.id}, '${item.titulo}')" style="background:#f39c12; padding:5px;">📖</button>
+                        <button onclick="deletarItem('${categoria}', ${item.id})" style="background:#e74c3c; padding:5px;">🗑️</button>
+                    </div>
+                </div>`;
+        
+        } else if (categoria === 'corridas') {
+            htmlItem = `
+                <div class="item-lista">
+                    <div>
+                        <strong>${item.distancia_km}km</strong> (${item.tipo_treino})<br>
+                        <small>${item.tempo_minutos} min - ${item.local}</small>
+                    </div>
+                    <button onclick="deletarItem('${categoria}', ${item.id})" style="background:#e74c3c; padding:5px;">🗑️</button>
+                </div>`;
+        
+        } else {
+            // Genérico para treino e trabalho
+            let texto = categoria === 'treinos' ? item.foco : `${item.tarefas_concluidas} tarefas`;
+            htmlItem = `
+                <div class="item-lista">
+                    <strong>${texto}</strong>
+                    <button onclick="deletarItem('${categoria}', ${item.id})" style="background:#e74c3c; padding:5px;">🗑️</button>
+                </div>`;
+        }
+
+        div.innerHTML += htmlItem;
+    });
 }
 
-// --- FUNÇÕES DE BUSCA E SALVAR (Iguais a antes) ---
-async function buscarLivro() {
-    const termo = document.getElementById('busca-titulo').value;
-    const divRes = document.getElementById('resultado-livro');
-    
-    if(!termo) return alert("Digite algo!");
-    divRes.innerHTML = "Buscando...";
-
-    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}`);
-    const dados = await resp.json();
-    
-    if(dados.totalItems > 0) {
-        const info = dados.items[0].volumeInfo;
-        document.getElementById('livro-titulo').value = info.title;
-        document.getElementById('livro-autor').value = info.authors ? info.authors.join(', ') : 'Desc.';
-        document.getElementById('livro-paginas').value = info.pageCount || 0;
-        document.getElementById('livro-capa').value = info.imageLinks ? info.imageLinks.thumbnail : '';
-        divRes.innerHTML = `✅ Achei: <strong>${info.title}</strong> (${info.pageCount} págs)`;
-    } else {
-        divRes.innerHTML = "❌ Nada encontrado.";
-    }
-}
+// --- FUNÇÕES DE AÇÃO (Salvar, Deletar, Buscar) --- 
+// (Mantive quase iguais, só adicionando o recarregamento do cache)
 
 async function salvarHobby() {
     const tipo = document.getElementById('tipo').value;
     if(!tipo) return alert("Selecione um tipo!");
-
-    let url = `/registrar/${tipo}`; // A URL muda baseada no tipo (livro, corrida...)
+    
+    // ... (Aqui vai a mesma lógica de pegar os valores dos inputs que fizemos antes)
+    // Para economizar espaço na resposta, vou resumir:
+    // Copie a lógica do 'corpo' e 'url' do seu script anterior aqui.
+    
+    // ATENÇÃO: Vou colocar a lógica resumida abaixo para funcionar:
+    let url = `/registrar/${tipo}`;
     let corpo = {};
-
+    
     if (tipo === 'livro') {
         corpo = {
             titulo: document.getElementById('livro-titulo').value,
@@ -76,19 +127,11 @@ async function salvarHobby() {
             local: document.getElementById('corrida-local').value
         };
     } else if (tipo === 'treino') {
-        corpo = {
-            foco: document.getElementById('treino-foco').value,
-            duracao: document.getElementById('treino-duracao').value,
-            carga: document.getElementById('treino-carga').value
-        };
+        corpo = { foco: document.getElementById('treino-foco').value, duracao: document.getElementById('treino-duracao').value, carga: document.getElementById('treino-carga').value };
     } else if (tipo === 'trabalho') {
-        corpo = {
-            tarefas: document.getElementById('trab-tarefas').value,
-            produtividade: document.getElementById('trab-prod').value,
-            obs: document.getElementById('trab-obs').value
-        };
+        corpo = { tarefas: document.getElementById('trab-tarefas').value, produtividade: document.getElementById('trab-prod').value, obs: document.getElementById('trab-obs').value };
     }
-    
+
     await fetch(url, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -96,72 +139,57 @@ async function salvarHobby() {
     });
 
     alert("Salvo!");
-    // Limpar campos simples para facilitar
-    document.querySelectorAll('input').forEach(input => input.value = '');
-    carregarLista();
+    // Limpa campos
+    document.querySelectorAll('input').forEach(i => i.value = '');
+    
+    // Recarrega os dados e volta pra home
+    await carregarDadosNoCache();
+    // Opcional: Se quiser ir direto pro detalhe do que salvou:
+    // abrirDetalhes(tipo + 's'); // ajuste de plural (livro -> livros)
 }
 
-// --- CARREGAR LISTA (Agora com Botões) ---
-async function carregarLista() {
-    const resp = await fetch('/resumo');
+async function deletarItem(tabela, id) {
+    if (!confirm("Apagar?")) return;
+    await fetch(`/remover/${tabela}/${id}`, { method: 'DELETE' });
+    await carregarDadosNoCache(); // Atualiza cache
+    renderizarListaEspecifica(tabela); // Atualiza tela atual
+}
+
+async function atualizarPagina(id, titulo) {
+    const novaPagina = prompt(`📖 ${titulo}\nPágina atual?`);
+    if (novaPagina) {
+        await fetch(`/atualizar/livro/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pagina_atual: novaPagina })
+        });
+        await carregarDadosNoCache();
+        renderizarListaEspecifica('livros');
+    }
+}
+
+// Funções auxiliares de visualização do formulário
+function verificarTipo() {
+    const tipo = document.getElementById('tipo').value;
+    document.querySelectorAll('.secao-hobby').forEach(el => el.style.display = 'none');
+    if (tipo) document.getElementById(`campos-${tipo}`).style.display = 'block';
+}
+
+async function buscarLivro() {
+    // ... (Copiar a mesma função buscarLivro do código anterior) ...
+    // Vou deixar aqui para garantir que funcione:
+    const termo = document.getElementById('busca-titulo').value;
+    const divRes = document.getElementById('resultado-livro');
+    if(!termo) return alert("Digite algo!");
+    divRes.innerHTML = "Buscando...";
+    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}`);
     const dados = await resp.json();
-    
-    const div = document.getElementById('lista-hobbies');
-    div.innerHTML = '';
-
-    // Renderiza LIVROS
-    if(dados.livros.length > 0) div.innerHTML += '<h4>📚 Livros</h4>';
-    dados.livros.forEach(l => {
-        // Calcula porcentagem lida
-        const porcentagem = Math.round((l.pagina_atual / l.total_paginas) * 100) || 0;
-        
-        div.innerHTML += `
-            <div class="item-lista">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <img src="${l.capa_url}" style="width:40px; border-radius:4px;">
-                    <div>
-                        <strong>${l.titulo}</strong><br>
-                        <span style="font-size:0.9em; color:#555;">
-                            Pág: ${l.pagina_atual} / ${l.total_paginas} (${porcentagem}%)
-                        </span>
-                    </div>
-                </div>
-                <div>
-                    <button onclick="atualizarPagina(${l.id}, '${l.titulo}')" style="background:#f39c12; padding:5px 10px; font-size:0.8em;">📖 Atualizar</button>
-                    <button onclick="deletarItem('livros', ${l.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
-                </div>
-            </div>`;
-    });
-
-    // Renderiza CORRIDAS
-    if(dados.corridas.length > 0) div.innerHTML += '<h4>🏃‍♂️ Corridas</h4>';
-    dados.corridas.forEach(c => {
-        div.innerHTML += `
-            <div class="item-lista">
-                <div>
-                    <strong>${c.distancia_km}km</strong> - ${c.tipo_treino}<br>
-                    <small>${c.local} (${c.tempo_minutos} min)</small>
-                </div>
-                <button onclick="deletarItem('corridas', ${c.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
-            </div>`;
-    });
-
-    // Renderiza TREINOS e TRABALHO (Seguindo a mesma lógica simples)
-    if(dados.treinos.length > 0) div.innerHTML += '<h4>💪 Treinos</h4>';
-    dados.treinos.forEach(t => {
-        div.innerHTML += `
-            <div class="item-lista">
-                <div>${t.foco} (${t.duracao_min} min)</div>
-                <button onclick="deletarItem('treinos', ${t.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
-            </div>`;
-    });
-    
-    if(dados.trabalho.length > 0) div.innerHTML += '<h4>💼 Trabalho</h4>';
-    dados.trabalho.forEach(t => {
-        div.innerHTML += `
-            <div class="item-lista">
-                <div>${t.tarefas_concluidas} tarefas (Prod: ${t.nivel_produtividade}/5)</div>
-                <button onclick="deletarItem('trabalho', ${t.id})" style="background:#e74c3c; padding:5px 10px; font-size:0.8em;">🗑️</button>
-            </div>`;
-    });
+    if(dados.totalItems > 0) {
+        const info = dados.items[0].volumeInfo;
+        document.getElementById('livro-titulo').value = info.title;
+        document.getElementById('livro-autor').value = info.authors ? info.authors.join(', ') : 'Desc.';
+        document.getElementById('livro-paginas').value = info.pageCount || 0;
+        document.getElementById('livro-capa').value = info.imageLinks ? info.imageLinks.thumbnail : '';
+        divRes.innerHTML = `✅ ${info.title}`;
+    } else { divRes.innerHTML = "❌ Nada."; }
 }

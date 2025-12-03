@@ -74,3 +74,46 @@ button:hover { background-color: #218838; }
     margin-top: 10px;
     line-height: 1.4;
 }
+
+/* --- ESTILOS NOVOS PARA O DASHBOARD --- */
+
+/* Grade dos Cards na Home */
+.grid-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 colunas */
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.card-menu {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #eee;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.card-menu:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    border-color: #ccc;
+}
+
+.card-menu h3 { margin: 10px 0 5px 0; font-size: 1.1em; }
+.card-menu span { font-size: 2em; } /* Tamanho do emoji */
+
+/* Botão Voltar (aparece na tela de detalhes) */
+.btn-voltar {
+    background-color: #6c757d; 
+    margin-bottom: 20px;
+    width: auto;
+    padding: 8px 15px;
+}
+.btn-voltar:hover { background-color: #5a6268; }
+
+/* Esconder telas por padrão */
+.tela { display: none; }
+.tela.ativa { display: block; }

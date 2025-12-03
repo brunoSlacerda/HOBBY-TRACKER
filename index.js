@@ -111,6 +111,36 @@ app.get('/resumo', async (req, res) => {
         }
     });
 
+    // --- ROTA ESPECIAL: Atualizar Livro (Páginas, Nota, Resumo, Status) ---
+    app.put('/atualizar/livro/:id', async (req, res) => {
+        const { id } = req.params;
+        const { pagina_atual, nota, resumo, status } = req.body;
+
+        // Montamos o SQL dinamicamente (só atualiza o que foi enviado)
+        // Se enviou página, atualizamos página. Se enviou resumo, atualizamos resumo.
+        try {
+            if (pagina_atual !== undefined) {
+                await db.query(`UPDATE livros SET pagina_atual = $1, data_atualizacao = CURRENT_TIMESTAMP WHERE id = $2`, [pagina_atual, id]);
+            }
+            
+            if (nota !== undefined) {
+                await db.query(`UPDATE livros SET nota = $1 WHERE id = $2`, [nota, id]);
+            }
+
+            if (resumo !== undefined) {
+                await db.query(`UPDATE livros SET resumo = $1 WHERE id = $2`, [resumo, id]);
+            }
+
+            if (status !== undefined) {
+                await db.query(`UPDATE livros SET status = $1 WHERE id = $2`, [status, id]);
+            }
+
+            res.json({ mensagem: "Livro atualizado!" });
+        } catch (err) {
+            res.status(400).json({ erro: err.message });
+        }
+    });
+
 
 app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);

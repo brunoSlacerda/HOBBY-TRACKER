@@ -109,7 +109,48 @@
         
         <div class="card">
             <h3 id="titulo-detalhe">Histórico</h3>
-            <div id="lista-especifica">Carregando...</div>
+            
+            <div id="lista-especifica"></div>
+
+            <div id="area-kanban-livros" style="display: none;">
+                <div class="kanban-container">
+                    
+                    <div class="kanban-coluna col-novo">
+                        <div class="kanban-titulo">📌 A Ler</div>
+                        <div id="lista-novos"></div>
+                    </div>
+
+                    <div class="kanban-coluna col-lendo">
+                        <div class="kanban-titulo">📖 Lendo</div>
+                        <div id="lista-lendo"></div>
+                    </div>
+
+                    <div class="kanban-coluna col-concluido">
+                        <div class="kanban-titulo">🏆 Concluídos</div>
+                        <div id="lista-concluidos"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-resumo" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="modal-titulo-livro">Resumo do Livro</h3>
+            
+            <label>Sua Nota (1 a 10):</label>
+            <input type="number" id="modal-nota" min="1" max="10" style="width: 60px;">
+            
+            <label>Seu Resumo / Comentários:</label>
+            <textarea id="modal-texto" placeholder="O que você aprendeu com esse livro?"></textarea>
+            
+            <input type="hidden" id="modal-id-livro">
+            
+            <div style="text-align: right; margin-top: 10px;">
+                <button onclick="fecharModal()" style="background: #ccc; width: auto;">Cancelar</button>
+                <button onclick="salvarResumo()" style="background: #28a745; width: auto;">💾 Salvar Avaliação</button>
+            </div>
         </div>
     </div>
 

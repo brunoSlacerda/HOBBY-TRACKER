@@ -112,21 +112,24 @@ async function atualizarPagina(id, titulo, total) {
     const novaPagina = prompt(`📖 ${titulo}\nPágina atual (Total: ${total})?`);
     
     if (novaPagina && !isNaN(novaPagina)) {
-        let statusNovo = 'lendo';
+        const paginaNum = parseInt(novaPagina);
+        let statusNovo = 'lendo'; // Padrão: se tem páginas lidas, está lendo
         
-        // Lógica automática: Se página >= total, vira concluído!
-        if (parseInt(novaPagina) >= total) {
+        // Lógica automática de status:
+        if (paginaNum >= total) {
             statusNovo = 'concluido';
             alert("Parabéns! Livro concluído! 🏆\nNão esqueça de deixar sua nota.");
-        } else if (parseInt(novaPagina) === 0) {
-            statusNovo = 'novo';
+        } else if (paginaNum === 0) {
+            statusNovo = 'novo'; // Ainda não começou
+        } else if (paginaNum > 0 && paginaNum < total) {
+            statusNovo = 'lendo'; // Está lendo
         }
 
         await fetch(`/atualizar/livro/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                pagina_atual: novaPagina,
+                pagina_atual: paginaNum,
                 status: statusNovo 
             })
         });
@@ -221,19 +224,6 @@ async function deletarItem(tabela, id) {
     await fetch(`/remover/${tabela}/${id}`, { method: 'DELETE' });
     await carregarDadosNoCache(); // Atualiza cache
     renderizarListaEspecifica(tabela); // Atualiza tela atual
-}
-
-async function atualizarPagina(id, titulo) {
-    const novaPagina = prompt(`📖 ${titulo}\nPágina atual?`);
-    if (novaPagina) {
-        await fetch(`/atualizar/livro/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pagina_atual: novaPagina })
-        });
-        await carregarDadosNoCache();
-        renderizarListaEspecifica('livros');
-    }
 }
 
 // Funções auxiliares de visualização do formulário

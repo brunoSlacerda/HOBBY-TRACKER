@@ -3,40 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hobby Tracker</title>
+    <title>Hobby Tracker Pro</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Pequeno ajuste para esconder as seções por padrão */
+        .secao-hobby { display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px; }
+        .capa-livro { width: 50px; height: 75px; object-fit: cover; border-radius: 4px; float: left; margin-right: 10px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; color: white; background: #666; }
+        .badge-corrida { background: #e67e22; }
+        .badge-leitura { background: #3498db; }
+        .badge-treino { background: #e74c3c; }
+        .badge-trabalho { background: #9b59b6; }
+    </style>
 </head>
 <body>
-    <h1>🎯 Hobby Tracker Semanal</h1>
+    <h1>🚀 Hobby Tracker Semanal</h1>
 
     <div class="card">
-        <h3>Adicionar Novo Registro</h3>
+        <h3>Novo Registro</h3>
         
+        <label>O que você fez hoje?</label>
         <select id="tipo" onchange="verificarTipo()">
-            <option value="Corrida">🏃‍♂️ Corrida (km)</option>
-            <option value="Leitura">📚 Leitura (páginas)</option>
-            <option value="Treino">💪 Treino (sim/não)</option>
-            <option value="Trabalho">💼 Trabalho (tarefas)</option>
+            <option value="">-- Selecione --</option>
+            <option value="livro">📚 Leitura</option>
+            <option value="corrida">🏃‍♂️ Corrida</option>
+            <option value="treino">💪 Treino (Academia/Cross)</option>
+            <option value="trabalho">💼 Trabalho</option>
         </select>
 
-        <div id="area-livro">
-            <label>🔍 Buscar dados do livro (Google Books):</label>
-            <div class="busca-container">
-                <input type="text" id="nome-livro" placeholder="Digite o nome do livro...">
-                <button onclick="buscarLivro()" class="btn-busca">Buscar</button>
+        <div id="campos-livro" class="secao-hobby">
+            <div style="background: #eef2ff; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                <label>🔍 Buscar no Google Books:</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="busca-titulo" placeholder="Nome do livro...">
+                    <button onclick="buscarLivro()" style="width: 30%; background: #4a69bd;">Buscar</button>
+                </div>
+                <div id="resultado-livro" style="font-size: 0.9em; margin-top: 5px; color: #555;"></div>
             </div>
-            <div id="resultado-livro"></div>
+
+            <input type="text" id="livro-titulo" placeholder="Título do Livro">
+            <input type="text" id="livro-autor" placeholder="Autor">
+            <input type="number" id="livro-paginas" placeholder="Total de Páginas">
+            <input type="hidden" id="livro-capa"> </div>
+
+        <div id="campos-corrida" class="secao-hobby">
+            <input type="number" id="corrida-dist" placeholder="Distância (Km)" step="0.1">
+            <input type="number" id="corrida-tempo" placeholder="Tempo (minutos)">
+            
+            <label>Tipo de Treino:</label>
+            <select id="corrida-tipo">
+                <option value="Rodagem">🐢 Rodagem (Leve)</option>
+                <option value="Longo">🏃‍♂️ Longão</option>
+                <option value="Tiro">⚡ Tiro / Velocidade</option>
+                <option value="Prova">🏅 Prova / Competição</option>
+            </select>
+            
+            <input type="text" id="corrida-local" placeholder="Local (ex: Parque, Esteira)">
         </div>
 
-        <input type="number" id="valor" placeholder="Quantidade / Valor" step="0.1">
-        <input type="date" id="data">
-        
-        <button onclick="salvarHobby()">Salvar Registro</button>
+        <div id="campos-treino" class="secao-hobby">
+            <input type="text" id="treino-foco" placeholder="Foco (ex: Peito e Tríceps)">
+            <input type="number" id="treino-duracao" placeholder="Duração (minutos)">
+            
+            <label>Sensação de Carga:</label>
+            <select id="treino-carga">
+                <option value="Leve">😌 Leve</option>
+                <option value="Moderada">😐 Moderada</option>
+                <option value="Pesada">😫 Pesada</option>
+                <option value="Falha">💀 Até a falha</option>
+            </select>
+        </div>
+
+        <div id="campos-trabalho" class="secao-hobby">
+            <input type="number" id="trab-tarefas" placeholder="Qtd. Tarefas Concluídas">
+            
+            <label>Nível de Produtividade (1 a 5):</label>
+            <select id="trab-prod">
+                <option value="1">⭐ 1 (Baixa)</option>
+                <option value="2">⭐⭐ 2</option>
+                <option value="3">⭐⭐⭐ 3 (Normal)</option>
+                <option value="4">⭐⭐⭐⭐ 4 (Boa)</option>
+                <option value="5">⭐⭐⭐⭐⭐ 5 (Excelente)</option>
+            </select>
+            
+            <input type="text" id="trab-obs" placeholder="Observação (ex: Reuniões o dia todo)">
+        </div>
+
+        <button onclick="salvarHobby()" style="margin-top: 15px;">💾 Salvar Registro</button>
     </div>
 
     <div class="card">
-        <h3>Histórico da Semana</h3>
-        <div id="lista-hobbies">Carregando...</div>
+        <h3>Histórico Recente</h3>
+        <div id="lista-hobbies">
+            <p style="text-align: center; color: #888;">Carregando dados...</p>
+        </div>
     </div>
 
     <script src="script.js"></script>

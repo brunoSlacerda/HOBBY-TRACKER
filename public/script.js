@@ -1,108 +1,99 @@
-// 1. Carregar a lista assim que a página abre
 document.addEventListener('DOMContentLoaded', carregarLista);
 
-// 2. Verifica se mudou para "Leitura" para mostrar a busca
+// Controla quais campos aparecem na tela
 function verificarTipo() {
     const tipo = document.getElementById('tipo').value;
-    const areaLivro = document.getElementById('area-livro');
     
-    if (tipo === 'Leitura') {
-        areaLivro.style.display = 'block';
-    } else {
-        areaLivro.style.display = 'none';
-    }
+    // Esconde tudo primeiro
+    document.getElementById('campos-livro').style.display = 'none';
+    document.getElementById('campos-corrida').style.display = 'none';
+    document.getElementById('campos-treino').style.display = 'none';
+    document.getElementById('campos-trabalho').style.display = 'none';
+
+    // Mostra só o escolhido
+    if (tipo === 'livro') document.getElementById('campos-livro').style.display = 'block';
+    if (tipo === 'corrida') document.getElementById('campos-corrida').style.display = 'block';
+    if (tipo === 'treino') document.getElementById('campos-treino').style.display = 'block';
+    if (tipo === 'trabalho') document.getElementById('campos-trabalho').style.display = 'block';
 }
 
-// 3. Busca na API do Google Books
+// Funções de Busca de Livro (Mantivemos a lógica do Google Books)
 async function buscarLivro() {
-    const termo = document.getElementById('nome-livro').value;
-    const divResultado = document.getElementById('resultado-livro');
-    const inputValor = document.getElementById('valor');
+    const termo = document.getElementById('busca-titulo').value;
+    const divRes = document.getElementById('resultado-livro');
+    
+    if(!termo) return alert("Digite algo!");
+    divRes.innerHTML = "Buscando...";
 
-    if (!termo) return alert("Digite o nome do livro!");
-
-    divResultado.innerHTML = "🔍 Buscando no Google...";
-
-    try {
-        const resposta = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}`);
-        const dados = await resposta.json();
-
-        if (dados.totalItems === 0) {
-            divResultado.innerHTML = "❌ Nenhum livro encontrado.";
-            return;
-        }
-
-        const livro = dados.items[0].volumeInfo;
-        const titulo = livro.title;
-        const paginas = livro.pageCount || 0;
-        const autores = livro.authors ? livro.authors.join(', ') : 'Desconhecido';
-        const ano = livro.publishedDate ? livro.publishedDate.substring(0, 4) : '?';
-
-        // Mostra visualmente
-        divResultado.innerHTML = `
-            📖 <strong>${titulo}</strong> (${ano})<br>
-            ✍️ ${autores}<br>
-            📄 ${paginas} páginas encontradas
-        `;
+    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(termo)}`);
+    const dados = await resp.json();
+    
+    if(dados.totalItems > 0) {
+        const info = dados.items[0].volumeInfo;
+        // Preenche os campos ocultos automaticamente
+        document.getElementById('livro-titulo').value = info.title;
+        document.getElementById('livro-autor').value = info.authors ? info.authors.join(', ') : 'Desc.';
+        document.getElementById('livro-paginas').value = info.pageCount || 0;
+        document.getElementById('livro-capa').value = info.imageLinks ? info.imageLinks.thumbnail : '';
         
-        // Preenche o campo de valor automaticamente!
-        inputValor.value = paginas;
-
-    } catch (erro) {
-        console.error(erro);
-        divResultado.innerText = "Erro ao conectar com o Google.";
+        divRes.innerHTML = `✅ Achei: <strong>${info.title}</strong> (${info.pageCount} págs)`;
+    } else {
+        divRes.innerHTML = "❌ Nada encontrado.";
     }
 }
 
-// 4. Salvar no Banco de Dados
+// O Grande "Salvar" que decide pra onde mandar
 async function salvarHobby() {
     const tipo = document.getElementById('tipo').value;
-    const valor = document.getElementById('valor').value;
-    const data = document.getElementById('data').value;
+    let url = '';
+    let corpo = {};
 
-    if (!valor || !data) return alert("Preencha todos os campos!");
-
-    await fetch('/registrar', {
+    if (tipo === 'livro') {
+        url = '/registrar/livro';
+        corpo = {
+            titulo: document.getElementById('livro-titulo').value,
+            autor: document.getElementById('livro-autor').value,
+            paginas: document.getElementById('livro-paginas').value,
+            capa: document.getElementById('livro-capa').value
+        };
+    } else if (tipo === 'corrida') {
+        url = '/registrar/corrida';
+        corpo = {
+            distancia: document.getElementById('corrida-dist').value,
+            tempo: document.getElementById('corrida-tempo').value,
+            tipo: document.getElementById('corrida-tipo').value,
+            local: document.getElementById('corrida-local').value
+        };
+    } 
+    // ... (você pode completar com treino e trabalho se quiser testar só esses 2 primeiro)
+    
+    // Envia pro servidor
+    await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo, valor, data })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(corpo)
     });
 
-    // Limpa campos
-    document.getElementById('valor').value = '';
-    document.getElementById('nome-livro').value = '';
-    document.getElementById('resultado-livro').innerHTML = '';
-    
-    // Recarrega a lista
+    alert("Salvo com sucesso!");
     carregarLista();
 }
 
-// 5. Carregar lista do Servidor
 async function carregarLista() {
-    const resposta = await fetch('/resumo');
-    const json = await resposta.json();
+    const resp = await fetch('/resumo');
+    const dados = await resp.json();
     
-    const divLista = document.getElementById('lista-hobbies');
-    divLista.innerHTML = ''; 
+    const div = document.getElementById('lista-hobbies');
+    div.innerHTML = '';
 
-    json.dados.forEach(item => {
-        divLista.innerHTML += `
-            <div class="item-lista">
-                <div>
-                    <strong>${formatarData(item.data)}</strong><br>
-                    ${item.tipo}
-                </div>
-                <div style="font-size: 1.2em; font-weight: bold; color: #555;">
-                    ${item.valor}
-                </div>
-            </div>
-        `;
+    // Renderiza Livros
+    if(dados.livros.length > 0) div.innerHTML += '<h4>📚 Livros</h4>';
+    dados.livros.forEach(l => {
+        div.innerHTML += `<div class="item-lista"><img src="${l.capa_url}" width="30"> <strong>${l.titulo}</strong> - ${l.pagina_atual}/${l.total_paginas} págs</div>`;
     });
-}
 
-// Pequeno ajudante para formatar a data bonita (dd/mm/aaaa)
-function formatarData(dataISO) {
-    if(!dataISO) return "";
-    const data = new Date(dataISO);
-    return data.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+    // Renderiza Corridas
+    if(dados.corridas.length > 0) div.innerHTML += '<h4>🏃‍♂️ Corridas</h4>';
+    dados.corridas.forEach(c => {
+        div.innerHTML += `<div class="item-lista"><strong>${c.distancia_km}km</strong> em ${c.tempo_minutos}min (${c.tipo_treino})</div>`;
+    });
 }

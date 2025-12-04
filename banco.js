@@ -101,9 +101,42 @@ const criarTabelas = async () => {
                 tempo_minutos INTEGER,
                 tipo_treino VARCHAR(50),
                 local VARCHAR(255),
-                data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                data TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                strava_id BIGINT UNIQUE,
+                strava_name VARCHAR(255),
+                pace VARCHAR(20),
+                average_speed_kmh DECIMAL(10,2),
+                total_elevation_gain DECIMAL(10,2)
             )
         `);
+
+        // Adiciona colunas do Strava se não existirem
+        try {
+            const colunas = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'corridas' AND table_schema = 'public'
+            `);
+            const colunasExistentes = colunas.rows.map(r => r.column_name);
+            
+            if (!colunasExistentes.includes('strava_id')) {
+                await pool.query(`ALTER TABLE corridas ADD COLUMN strava_id BIGINT UNIQUE`);
+            }
+            if (!colunasExistentes.includes('strava_name')) {
+                await pool.query(`ALTER TABLE corridas ADD COLUMN strava_name VARCHAR(255)`);
+            }
+            if (!colunasExistentes.includes('pace')) {
+                await pool.query(`ALTER TABLE corridas ADD COLUMN pace VARCHAR(20)`);
+            }
+            if (!colunasExistentes.includes('average_speed_kmh')) {
+                await pool.query(`ALTER TABLE corridas ADD COLUMN average_speed_kmh DECIMAL(10,2)`);
+            }
+            if (!colunasExistentes.includes('total_elevation_gain')) {
+                await pool.query(`ALTER TABLE corridas ADD COLUMN total_elevation_gain DECIMAL(10,2)`);
+            }
+        } catch (migErr) {
+            console.log('ℹ️  Migração de colunas corridas (pode ser ignorado):', migErr.message);
+        }
 
         // Tabela TREINOS
         await pool.query(`

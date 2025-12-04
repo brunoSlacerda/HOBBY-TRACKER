@@ -26,7 +26,13 @@ async function abrirDetalhes(categoria) {
     };
     document.getElementById('titulo-detalhe').innerText = titulos[categoria];
 
-    // 3. Renderiza a lista específica
+    // 3. Mostra/oculta botão de sincronizar Strava
+    const btnSync = document.getElementById('btn-sync-strava');
+    if (btnSync) {
+        btnSync.style.display = categoria === 'corridas' ? 'block' : 'none';
+    }
+
+    // 4. Renderiza a lista específica
     renderizarListaEspecifica(categoria);
 }
 
@@ -152,8 +158,69 @@ function renderizarListaEspecifica(categoria) {
         divPadrao.style.display = 'block';
         divKanban.style.display = 'none';
         
-        // ... (Copie aqui a lógica antiga de renderizar corridas/treinos do seu script anterior) ...
-        // Para facilitar, use o código da resposta anterior para as outras categorias.
+        if (categoria === 'corridas') {
+            lista.forEach(item => {
+                const html = `
+                    <div class="card" style="margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                ${item.strava_name ? `<strong style="color: #ff9800;">🏃‍♂️ ${item.strava_name}</strong>` : '<strong>🏃‍♂️ Corrida</strong>'}
+                                ${item.strava_id ? '<span style="font-size: 0.8em; color: #999; margin-left: 5px;">(Strava)</span>' : ''}
+                                <div style="margin-top: 8px; font-size: 0.9em; color: #666;">
+                                    <div>📏 <strong>${item.distancia_km} km</strong></div>
+                                    <div>⏱️ Tempo: <strong>${item.tempo_minutos} min</strong></div>
+                                    ${item.pace ? `<div>⚡ Ritmo: <strong>${item.pace}</strong></div>` : ''}
+                                    ${item.average_speed_kmh ? `<div>🚀 Velocidade média: <strong>${item.average_speed_kmh} km/h</strong></div>` : ''}
+                                    ${item.total_elevation_gain > 0 ? `<div>⛰️ Elevação: <strong>${item.total_elevation_gain} m</strong></div>` : ''}
+                                    <div>📍 ${item.local || 'Não informado'}</div>
+                                    <div style="margin-top: 5px;">
+                                        <span class="badge badge-corrida">${item.tipo_treino || 'Rodagem'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="deletarItem('corridas', ${item.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
+                        </div>
+                        <div style="font-size: 0.8em; color: #999; margin-top: 8px;">
+                            ${new Date(item.data).toLocaleString('pt-BR')}
+                        </div>
+                    </div>
+                `;
+                divPadrao.innerHTML += html;
+            });
+        } else if (categoria === 'treinos') {
+            lista.forEach(item => {
+                const html = `
+                    <div class="card" style="margin-bottom: 15px;">
+                        <strong>💪 ${item.foco || 'Treino'}</strong>
+                        <div style="margin-top: 5px; font-size: 0.9em; color: #666;">
+                            Duração: ${item.duracao_min} min | Carga: ${item.carga_sensacao}
+                        </div>
+                        <div style="font-size: 0.8em; color: #999; margin-top: 5px;">
+                            ${new Date(item.data).toLocaleString('pt-BR')}
+                        </div>
+                        <button onclick="deletarItem('treinos', ${item.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-top: 5px;">🗑️</button>
+                    </div>
+                `;
+                divPadrao.innerHTML += html;
+            });
+        } else if (categoria === 'trabalho') {
+            lista.forEach(item => {
+                const html = `
+                    <div class="card" style="margin-bottom: 15px;">
+                        <strong>💼 Trabalho</strong>
+                        <div style="margin-top: 5px; font-size: 0.9em; color: #666;">
+                            Tarefas: ${item.tarefas_concluidas} | Produtividade: ${'⭐'.repeat(item.nivel_produtividade || 0)}
+                        </div>
+                        ${item.observacao ? `<div style="margin-top: 5px; font-size: 0.9em; color: #666;">${item.observacao}</div>` : ''}
+                        <div style="font-size: 0.8em; color: #999; margin-top: 5px;">
+                            ${new Date(item.data).toLocaleString('pt-BR')}
+                        </div>
+                        <button onclick="deletarItem('trabalho', ${item.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-top: 5px;">🗑️</button>
+                    </div>
+                `;
+                divPadrao.innerHTML += html;
+            });
+        }
     }
 }
 
@@ -323,6 +390,62 @@ function verificarTipo() {
     const tipo = document.getElementById('tipo').value;
     document.querySelectorAll('.secao-hobby').forEach(el => el.style.display = 'none');
     if (tipo) document.getElementById(`campos-${tipo}`).style.display = 'block';
+}
+
+// --- FUNÇÃO: Sincronizar Corridas do Strava ---
+async function sincronizarStrava() {
+    // Encontra o botão que foi clicado
+    const btn = event ? event.target : document.querySelector('#btn-sync-strava') || document.querySelector('button[onclick*="sincronizarStrava"]');
+    const textoOriginal = btn ? btn.textContent : 'Sincronizar';
+    
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '⏳ Sincronizando...';
+        }
+
+        const response = await fetch('/sincronizar/strava', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.erro || 'Erro ao sincronizar');
+        }
+
+        if (data.mensagem.includes('já sincronizada')) {
+            alert('✅ ' + data.mensagem);
+        } else {
+            alert('✅ ' + data.mensagem);
+            // Preenche os campos do formulário com os dados do Strava (se estiver na tela de cadastro)
+            const distInput = document.getElementById('corrida-dist');
+            if (distInput && data.corrida) {
+                distInput.value = data.corrida.distancia_km;
+                document.getElementById('corrida-tempo').value = data.corrida.tempo_minutos;
+                document.getElementById('corrida-tipo').value = data.corrida.tipo_treino || 'Rodagem';
+                document.getElementById('corrida-local').value = data.corrida.local || 'Strava';
+            }
+        }
+
+        // Recarrega os dados
+        await carregarDadosNoCache();
+        
+        // Se estiver na tela de corridas, atualiza
+        const telaDetalhes = document.getElementById('tela-detalhes');
+        if (telaDetalhes && telaDetalhes.classList.contains('ativa')) {
+            renderizarListaEspecifica('corridas');
+        }
+    } catch (err) {
+        alert('❌ Erro: ' + err.message);
+        console.error(err);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = textoOriginal;
+        }
+    }
 }
 
 async function buscarLivro() {

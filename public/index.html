@@ -48,6 +48,15 @@
             </div>
 
             <div id="campos-corrida" class="secao-hobby">
+                <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #ffc107;">
+                    <strong>🔄 Sincronizar do Strava:</strong>
+                    <button onclick="sincronizarStrava()" style="width: 100%; margin-top: 5px; background: #ff9800; color: white;">
+                        📥 Buscar última corrida do Strava
+                    </button>
+                    <small style="display: block; margin-top: 5px; color: #666;">
+                        Ou preencha manualmente abaixo
+                    </small>
+                </div>
                 <input type="number" id="corrida-dist" placeholder="Distância (Km)" step="0.1">
                 <input type="number" id="corrida-tempo" placeholder="Tempo (min)">
                 <select id="corrida-tipo">
@@ -108,7 +117,12 @@
         <button class="btn-voltar" onclick="voltarHome()">⬅ Voltar</button>
         
         <div class="card">
-            <h3 id="titulo-detalhe">Histórico</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="titulo-detalhe" style="margin: 0;">Histórico</h3>
+                <button id="btn-sync-strava" onclick="sincronizarStrava()" style="display: none; background: #ff9800; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                    🔄 Sincronizar Strava
+                </button>
+            </div>
             
             <div id="lista-especifica"></div>
 

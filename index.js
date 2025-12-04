@@ -7,6 +7,7 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 8080; 
 const db = require('./banco.js');
+const { getLatestActivity } = require('./stravaService');
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -100,6 +101,88 @@ app.put('/atualizar/livro/:id', async (req, res) => {
 
         res.json({ mensagem: "Livro atualizado!" });
     } catch (err) {
+        res.status(400).json({ erro: err.message });
+    }
+});
+
+// --- ROTA: Sincronizar Corridas do Strava ---
+app.post('/sincronizar/strava', async (req, res) => {
+    try {
+        // Busca última atividade do Strava
+        const activity = await getLatestActivity();
+
+        // Verifica se a corrida já existe (pelo strava_id)
+        const existe = await db.query(
+            'SELECT id FROM corridas WHERE strava_id = $1',
+            [activity.id]
+        );
+
+        if (existe.rows.length > 0) {
+            return res.json({ 
+                mensagem: "Corrida já sincronizada!",
+                corrida: existe.rows[0]
+            });
+        }
+
+        // Converte tempo do formato "MM:SS" ou "HH:MM:SS" para minutos
+        const tempoStr = activity.moving_time;
+        const tempoParts = tempoStr.split(':');
+        let tempoMinutos = 0;
+        if (tempoParts.length === 2) {
+            // MM:SS
+            tempoMinutos = parseInt(tempoParts[0]) + (parseInt(tempoParts[1]) / 60);
+        } else if (tempoParts.length === 3) {
+            // HH:MM:SS
+            tempoMinutos = (parseInt(tempoParts[0]) * 60) + parseInt(tempoParts[1]) + (parseInt(tempoParts[2]) / 60);
+        }
+
+        // Determina tipo de treino baseado no pace (opcional, pode melhorar)
+        let tipoTreino = 'Rodagem';
+        if (activity.pace) {
+            // Remove "/km" se existir
+            const paceStr = activity.pace.replace('/km', '');
+            const paceParts = paceStr.split(':');
+            if (paceParts.length === 2) {
+                const paceMin = parseFloat(paceParts[0]) + (parseFloat(paceParts[1]) / 60);
+                if (paceMin < 4.5) tipoTreino = 'Tiro';
+                else if (paceMin < 5.5) tipoTreino = 'Longo';
+            }
+        }
+
+        // Salva no banco
+        const resultado = await db.query(
+            `INSERT INTO corridas (
+                distancia_km, 
+                tempo_minutos, 
+                tipo_treino, 
+                local, 
+                strava_id, 
+                strava_name, 
+                pace, 
+                average_speed_kmh, 
+                total_elevation_gain,
+                data
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+            [
+                activity.distance_km,
+                Math.round(tempoMinutos),
+                tipoTreino,
+                activity.timezone || 'Strava',
+                activity.id,
+                activity.name,
+                activity.pace,
+                activity.average_speed_kmh,
+                activity.total_elevation_gain,
+                activity.start_date_local || new Date()
+            ]
+        );
+
+        res.json({ 
+            mensagem: "Corrida sincronizada do Strava!",
+            corrida: resultado.rows[0]
+        });
+    } catch (err) {
+        console.error('Erro ao sincronizar Strava:', err);
         res.status(400).json({ erro: err.message });
     }
 });

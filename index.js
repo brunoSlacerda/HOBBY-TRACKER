@@ -13,21 +13,21 @@ const { getLatestActivity, getActivityById, verifyWebhookSignature } = require('
 // --- ROTA: Webhook do Strava (Chamado automaticamente quando uma nova atividade é criada) ---
 app.post('/webhook/strava', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
-        // Verifica a assinatura do webhook para segurança
-        const signature = req.headers['x-hub-signature-256'];
         const bodyString = req.body.toString();
-        
-        if (!verifyWebhookSignature(signature, bodyString)) {
-            console.warn('⚠️ Webhook do Strava rejeitado: assinatura inválida');
-            return res.status(401).json({ erro: 'Assinatura inválida' });
-        }
-
         const event = JSON.parse(bodyString);
         
         // O Strava envia um evento de verificação quando você configura o webhook
-        if (event.object_type === 'subscription') {
-            console.log('✅ Webhook do Strava verificado com sucesso');
+        // Neste caso, não precisa verificar assinatura ainda
+        if (event.object_type === 'subscription' && event.hub && event.hub.challenge) {
+            console.log('✅ Webhook do Strava verificado com sucesso - Challenge:', event.hub.challenge);
             return res.status(200).json({ 'hub.challenge': event.hub.challenge });
+        }
+
+        // Para outros eventos, verifica a assinatura do webhook para segurança
+        const signature = req.headers['x-hub-signature-256'];
+        if (signature && !verifyWebhookSignature(signature, bodyString)) {
+            console.warn('⚠️ Webhook do Strava rejeitado: assinatura inválida');
+            return res.status(401).json({ erro: 'Assinatura inválida' });
         }
 
         // Processa apenas eventos de criação de atividade

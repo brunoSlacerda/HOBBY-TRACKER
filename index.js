@@ -11,6 +11,22 @@ const { getLatestActivity, getActivityById, verifyWebhookSignature } = require('
 
 // IMPORTANTE: Registrar webhook ANTES do express.json() para receber body raw
 // --- ROTA: Webhook do Strava (Chamado automaticamente quando uma nova atividade é criada) ---
+
+// GET para verificação inicial do Strava
+app.get('/webhook/strava', (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    
+    if (mode === 'subscribe' && challenge) {
+        console.log('✅ Webhook do Strava verificado via GET - Challenge:', challenge);
+        res.status(200).send(challenge);
+    } else {
+        res.status(403).send('Forbidden');
+    }
+});
+
+// POST para receber eventos do Strava
 app.post('/webhook/strava', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
         const bodyString = req.body.toString();

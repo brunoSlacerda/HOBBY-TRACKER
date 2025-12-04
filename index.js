@@ -1,4 +1,8 @@
-require('dotenv').config();
+// Carrega variáveis de ambiente apenas em desenvolvimento local
+// No Render, as variáveis já estão configuradas automaticamente
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 8080; 

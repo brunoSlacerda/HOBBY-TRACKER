@@ -8,7 +8,11 @@ let connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
     console.error('❌ ERRO: DATABASE_URL não configurada!');
     console.error('   Crie um arquivo .env com: DATABASE_URL=sua_url_aqui');
-    process.exit(1);
+    console.error('   Ou configure a variável de ambiente DATABASE_URL no Render');
+    console.warn('⚠️  Continuando sem DATABASE_URL - o servidor iniciará mas as rotas do banco falharão');
+    console.warn('   Configure DATABASE_URL no painel do Render em: Settings > Environment Variables');
+    // Não faz exit(1) para não quebrar o deploy
+    // A conexão falhará quando tentar usar, mas permite que o servidor inicie
 }
 
 // Corrige URL incompleta do Render (adiciona domínio se necessário)
@@ -25,8 +29,10 @@ if (connectionString.includes('@dpg-') && !connectionString.includes('render.com
     }
 }
 
+// Cria o pool (mesmo sem connectionString para não quebrar o código)
+// Se não tiver connectionString, vai falhar nas queries mas não quebra o deploy
 const pool = new Pool({
-  connectionString,
+  connectionString: connectionString || 'postgresql://invalid',
   ssl: { rejectUnauthorized: false },
 });
 
@@ -53,21 +59,38 @@ const criarTabelas = async () => {
 
         // Adiciona colunas que podem não existir (migração segura)
         // Verifica se as colunas existem antes de adicionar
-        const colunas = await pool.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'livros'
-        `);
-        const colunasExistentes = colunas.rows.map(r => r.column_name);
-        
-        if (!colunasExistentes.includes('status')) {
-            await pool.query(`ALTER TABLE livros ADD COLUMN status VARCHAR(20) DEFAULT 'novo'`);
-        }
-        if (!colunasExistentes.includes('nota')) {
-            await pool.query(`ALTER TABLE livros ADD COLUMN nota INTEGER DEFAULT 0`);
-        }
-        if (!colunasExistentes.includes('resumo')) {
-            await pool.query(`ALTER TABLE livros ADD COLUMN resumo TEXT`);
+        try {
+            const colunas = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'livros' AND table_schema = 'public'
+            `);
+            const colunasExistentes = colunas.rows.map(r => r.column_name);
+            
+            if (!colunasExistentes.includes('status')) {
+                try {
+                    await pool.query(`ALTER TABLE livros ADD COLUMN status VARCHAR(20) DEFAULT 'novo'`);
+                } catch (e) {
+                    // Coluna pode ter sido criada entre a verificação e a adição
+                }
+            }
+            if (!colunasExistentes.includes('nota')) {
+                try {
+                    await pool.query(`ALTER TABLE livros ADD COLUMN nota INTEGER DEFAULT 0`);
+                } catch (e) {
+                    // Coluna pode ter sido criada entre a verificação e a adição
+                }
+            }
+            if (!colunasExistentes.includes('resumo')) {
+                try {
+                    await pool.query(`ALTER TABLE livros ADD COLUMN resumo TEXT`);
+                } catch (e) {
+                    // Coluna pode ter sido criada entre a verificação e a adição
+                }
+            }
+        } catch (migErr) {
+            // Ignora erros de migração (tabela pode não existir ainda ou colunas já existem)
+            console.log('ℹ️  Migração de colunas (pode ser ignorado):', migErr.message);
         }
 
         // Tabela CORRIDAS
@@ -114,20 +137,47 @@ const criarTabelas = async () => {
 let tabelasCriadas = false;
 
 const inicializarBanco = async () => {
-    if (tabelasCriadas) return;
+    if (tabelasCriadas || !connectionString) {
+        console.log('ℹ️  Inicialização do banco pulada (já criado ou sem connectionString)');
+        return;
+    }
     
+    console.log('🔄 Tentando conectar ao banco de dados...');
     try {
-        const client = await pool.connect();
-        console.log('Conectado ao DB!');
+        // Adiciona timeout na conexão
+        const connectPromise = pool.connect();
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Timeout na conexão')), 8000);
+        });
+        
+        const client = await Promise.race([connectPromise, timeoutPromise]);
+        console.log('✅ Conectado ao DB!');
         await criarTabelas();
         tabelasCriadas = true;
         client.release();
     } catch (err) {
-        console.error('Erro ao conectar ao banco:', err.message);
+        console.error('❌ Erro ao conectar ao banco:', err.message);
+        console.log('ℹ️  Servidor continuará iniciando - banco será conectado quando necessário');
+        // Não encerra o processo - permite que o servidor inicie mesmo com erro de conexão
+        // A conexão será tentada novamente quando necessário
     }
 };
 
-// Inicializa o banco quando o módulo é carregado
-inicializarBanco();
+// Inicializa o banco quando o módulo é carregado (não bloqueia)
+// Não usa await para não bloquear a inicialização do servidor
+// Adiciona timeout para não travar indefinidamente
+const timeoutPromise = new Promise((resolve) => {
+    setTimeout(() => {
+        console.log('⏱️  Timeout na inicialização do banco - servidor iniciará mesmo assim');
+        resolve();
+    }, 10000); // 10 segundos de timeout
+});
+
+Promise.race([
+    inicializarBanco(),
+    timeoutPromise
+]).catch(err => {
+    console.error('Erro na inicialização do banco:', err.message);
+});
 
 module.exports = pool;

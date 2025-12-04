@@ -87,8 +87,11 @@ app.put('/atualizar/livro/:id', async (req, res) => {
             await db.query(`UPDATE livros SET status = $1 WHERE id = $2`, [status, id]);
         }
 
-        if (nota !== undefined) {
-            await db.query(`UPDATE livros SET nota = $1 WHERE id = $2`, [nota, id]);
+        if (nota !== undefined && nota !== null && nota !== '') {
+            const notaNum = parseInt(nota);
+            if (!isNaN(notaNum) && notaNum >= 1 && notaNum <= 10) {
+                await db.query(`UPDATE livros SET nota = $1 WHERE id = $2`, [notaNum, id]);
+            }
         }
 
         if (resumo !== undefined) {

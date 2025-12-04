@@ -86,10 +86,12 @@ function renderizarListaEspecifica(categoria) {
                         <div style="background:${corBarra}; width:${pct}%; height:100%; border-radius:3px; transition: width 0.3s;"></div>
                     </div>
                     
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:5px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:5px; flex-wrap:wrap;">
                         ${item.status !== 'concluido' ? 
                             `<button onclick="atualizarPagina(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.total_paginas})" title="Atualizar página">📖</button>` : 
-                            `<span style="font-size:1.1em; color:#f39c12;">⭐ ${item.nota || '-'}</span>`
+                            `<button onclick="abrirModalResumo(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.nota || ''}, '${(item.resumo || '').replace(/'/g, "\\'")}')" title="Avaliar livro" style="background:#f39c12; color:white; font-weight:bold;">
+                                ⭐ ${item.nota || 'Avaliar'}
+                            </button>`
                         }
                         <button onclick="abrirModalResumo(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.nota || ''}, '${(item.resumo || '').replace(/'/g, "\\'")}')" title="Ver/Editar resumo" style="background:#9b59b6;">📝</button>
                         <button onclick="deletarItem('livros', ${item.id})" title="Deletar livro" style="background:#e74c3c;">🗑️</button>
@@ -163,19 +165,41 @@ function fecharModal() {
 
 async function salvarResumo() {
     const id = document.getElementById('modal-id-livro').value;
-    const nota = document.getElementById('modal-nota').value;
+    const notaInput = document.getElementById('modal-nota').value;
     const resumo = document.getElementById('modal-texto').value;
 
-    await fetch(`/atualizar/livro/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nota, resumo })
-    });
+    // Converte nota para número (ou null se vazio)
+    const nota = notaInput && notaInput.trim() !== '' ? parseInt(notaInput) : null;
 
-    fecharModal();
-    alert("Avaliação salva!");
-    await carregarDadosNoCache();
-    renderizarListaEspecifica('livros');
+    // Valida nota se fornecida
+    if (nota !== null && (nota < 1 || nota > 10)) {
+        alert("A nota deve ser entre 1 e 10!");
+        return;
+    }
+
+    try {
+        const response = await fetch(`/atualizar/livro/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                nota: nota !== null ? nota : undefined,
+                resumo: resumo.trim() || undefined
+            })
+        });
+
+        if (!response.ok) {
+            const erro = await response.json();
+            throw new Error(erro.erro || 'Erro ao salvar');
+        }
+
+        fecharModal();
+        alert("Avaliação salva!");
+        await carregarDadosNoCache();
+        renderizarListaEspecifica('livros');
+    } catch (err) {
+        alert("Erro ao salvar: " + err.message);
+        console.error(err);
+    }
 }
 
 // --- FUNÇÕES DE AÇÃO (Salvar, Deletar, Buscar) --- 

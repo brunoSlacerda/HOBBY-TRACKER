@@ -10,50 +10,51 @@ const db = require('./banco.js');
 const { getLatestActivity, getActivityById, verifyWebhookSignature } = require('./stravaService');
 
 // Token de verificação do webhook do Strava
-const VERIFY_TOKEN = 'STRAVA_VERIFY_TOKEN';
+const VERIFY_TOKEN = 'STRAVA';
 
 // IMPORTANTE: Registrar webhook ANTES do express.json() para receber body raw
 // --- ROTA: Webhook do Strava (Chamado automaticamente quando uma nova atividade é criada) ---
 
 // GET para verificação inicial do Strava (Handshake)
-app.get('/webhook/strava', (req, res) => {
+app.get('/webhook', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
     
-    console.log('🔍 GET recebido do Strava:', { mode, token: token ? '***' : 'vazio', challenge });
-    
-    // Verifica se o token bate e o mode é 'subscribe'
-    if (mode === 'subscribe' && token === VERIFY_TOKEN && challenge) {
+    // Se mode for 'subscribe' E token for igual ao VERIFY_TOKEN
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
         console.log('✅ Webhook do Strava verificado via GET - Challenge:', challenge);
-        // Retorna JSON com hub.challenge (CRÍTICO)
+        // Retorna JSON exatamente assim: { "hub.challenge": challenge }
         res.status(200).json({ 'hub.challenge': challenge });
     } else {
-        console.warn('⚠️ GET inválido do Strava:', { mode, tokenMatch: token === VERIFY_TOKEN, challenge: challenge ? 'presente' : 'ausente' });
+        console.warn('⚠️ GET inválido do Strava:', { mode, tokenMatch: token === VERIFY_TOKEN });
         res.status(403).send('Forbidden');
     }
 });
 
 // POST para receber eventos do Strava
-app.post('/webhook/strava', express.raw({ type: 'application/json' }), async (req, res) => {
-    // IMPORTANTE: Responder com 200 OK imediatamente, senão o Strava reenvia o evento
-    res.status(200).json({ received: true });
+app.post('/webhook', express.json(), (req, res) => {
+    // IMPORTANTE: Responda imediatamente para o Strava não ficar reenviando
+    res.status(200).send('EVENT_RECEIVED');
     
-    try {
-        const bodyString = req.body.toString();
-        const event = JSON.parse(bodyString);
+    // Apenas logue o evento recebido
+    console.log("Evento recebido:", req.body);
+    
+    // Processa eventos de criação de atividade em background
+    if (req.body.object_type === 'activity' && req.body.aspect_type === 'create') {
+        const activityId = req.body.object_id;
+        console.log(`Nova atividade recebida! ID: ${activityId}`);
         
-        // Para outros eventos, verifica a assinatura do webhook para segurança
-        const signature = req.headers['x-hub-signature-256'];
-        if (signature && !verifyWebhookSignature(signature, bodyString)) {
-            console.warn('⚠️ Webhook do Strava rejeitado: assinatura inválida');
-            return;
-        }
+        // Processa em background (não bloqueia a resposta)
+        processActivityAsync(activityId).catch(err => {
+            console.error('❌ Erro ao processar atividade:', err);
+        });
+    }
+});
 
-        // Processa apenas eventos de criação de atividade
-        if (event.object_type === 'activity' && event.aspect_type === 'create') {
-            const activityId = event.object_id;
-            console.log(`Nova atividade recebida! ID: ${activityId}`);
+// Função assíncrona para processar atividade em background
+async function processActivityAsync(activityId) {
+    try {
 
             // Busca os dados completos da atividade
             const activity = await getActivityById(activityId);

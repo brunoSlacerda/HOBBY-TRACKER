@@ -11,7 +11,7 @@ const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET;
 const STRAVA_REFRESH_TOKEN = process.env.STRAVA_REFRESH_TOKEN;
 
 // URL do seu webhook no Render
-const WEBHOOK_URL = 'https://hobby-tracker-wwkl.onrender.com/webhook/strava';
+const WEBHOOK_URL = 'https://hobby-tracker-wwkl.onrender.com/webhook';
 
 /**
  * Obtém um novo access token usando o refresh token
@@ -77,7 +77,7 @@ async function createWebhook(accessToken) {
             client_id: STRAVA_CLIENT_ID,
             client_secret: STRAVA_CLIENT_SECRET,
             callback_url: WEBHOOK_URL,
-            verify_token: 'STRAVA_VERIFY_TOKEN' // Token de verificação (deve corresponder ao VERIFY_TOKEN no servidor)
+            verify_token: 'STRAVA' // Token de verificação (deve corresponder ao VERIFY_TOKEN no servidor)
         });
 
         return response.data;

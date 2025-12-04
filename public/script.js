@@ -88,13 +88,13 @@ function renderizarListaEspecifica(categoria) {
                     
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:5px; flex-wrap:wrap;">
                         ${item.status !== 'concluido' ? 
-                            `<button onclick="atualizarPagina(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.total_paginas})" title="Atualizar página">📖</button>` : 
-                            `<button onclick="abrirModalResumo(${item.id}, ${JSON.stringify(item.titulo)}, ${item.nota || 'null'}, ${JSON.stringify(item.resumo || '')})" title="Avaliar livro" style="background:#f39c12; color:white; font-weight:bold;">
+                            `<button class="btn-atualizar-pagina" data-id="${item.id}" data-titulo="${item.titulo.replace(/"/g, '&quot;')}" data-total="${item.total_paginas}" title="Atualizar página">📖</button>` : 
+                            `<button class="btn-abrir-modal" data-id="${item.id}" data-titulo="${item.titulo.replace(/"/g, '&quot;')}" data-nota="${item.nota || ''}" data-resumo="${(item.resumo || '').replace(/"/g, '&quot;')}" title="Avaliar livro" style="background:#f39c12; color:white; font-weight:bold;">
                                 ⭐ ${item.nota || 'Avaliar'}
                             </button>`
                         }
-                        <button onclick="abrirModalResumo(${item.id}, ${JSON.stringify(item.titulo)}, ${item.nota || 'null'}, ${JSON.stringify(item.resumo || '')})" title="Ver/Editar resumo" style="background:#9b59b6;">📝</button>
-                        <button onclick="deletarItem('livros', ${item.id})" title="Deletar livro" style="background:#e74c3c;">🗑️</button>
+                        <button class="btn-abrir-modal" data-id="${item.id}" data-titulo="${item.titulo.replace(/"/g, '&quot;')}" data-nota="${item.nota || ''}" data-resumo="${(item.resumo || '').replace(/"/g, '&quot;')}" title="Ver/Editar resumo" style="background:#9b59b6;">📝</button>
+                        <button class="btn-deletar" data-tabela="livros" data-id="${item.id}" title="Deletar livro" style="background:#e74c3c;">🗑️</button>
                     </div>
                 </div>
             `;
@@ -108,6 +108,44 @@ function renderizarListaEspecifica(categoria) {
                 document.getElementById('lista-novos').innerHTML += htmlLivro;
             }
         });
+
+        // Usa event delegation no container para evitar listeners duplicados
+        const kanbanContainer = document.getElementById('area-kanban-livros');
+        if (kanbanContainer && !kanbanContainer.dataset.listenersAdded) {
+            kanbanContainer.dataset.listenersAdded = 'true';
+            
+            kanbanContainer.addEventListener('click', function(e) {
+                const btn = e.target.closest('.btn-abrir-modal');
+                if (btn) {
+                    e.preventDefault();
+                    const id = parseInt(btn.getAttribute('data-id'));
+                    const titulo = btn.getAttribute('data-titulo');
+                    const nota = btn.getAttribute('data-nota') || null;
+                    const resumo = btn.getAttribute('data-resumo') || '';
+                    abrirModalResumo(id, titulo, nota, resumo);
+                    return;
+                }
+                
+                const btnPagina = e.target.closest('.btn-atualizar-pagina');
+                if (btnPagina) {
+                    e.preventDefault();
+                    const id = parseInt(btnPagina.getAttribute('data-id'));
+                    const titulo = btnPagina.getAttribute('data-titulo');
+                    const total = parseInt(btnPagina.getAttribute('data-total'));
+                    atualizarPagina(id, titulo, total);
+                    return;
+                }
+                
+                const btnDeletar = e.target.closest('.btn-deletar');
+                if (btnDeletar) {
+                    e.preventDefault();
+                    const tabela = btnDeletar.getAttribute('data-tabela');
+                    const id = parseInt(btnDeletar.getAttribute('data-id'));
+                    deletarItem(tabela, id);
+                    return;
+                }
+            });
+        }
 
     } else {
         // SE FOR OUTROS (Corrida, Treino...), MOSTRA LISTA NORMAL

@@ -55,78 +55,75 @@ app.post('/webhook', express.json(), (req, res) => {
 // Função assíncrona para processar atividade em background
 async function processActivityAsync(activityId) {
     try {
+        // Busca os dados completos da atividade
+        const activity = await getActivityById(activityId);
 
-            // Busca os dados completos da atividade
-            const activity = await getActivityById(activityId);
+        // Verifica se já existe no banco
+        const existe = await db.query(
+            'SELECT id FROM corridas WHERE strava_id = $1',
+            [activity.id]
+        );
 
-            // Verifica se já existe no banco
-            const existe = await db.query(
-                'SELECT id FROM corridas WHERE strava_id = $1',
-                [activity.id]
-            );
-
-            if (existe.rows.length > 0) {
-                console.log(`ℹ️ Atividade ${activityId} já existe no banco`);
-                return; // Já respondemos 200 OK acima
-            }
-
-            // Converte tempo do formato "MM:SS" ou "HH:MM:SS" para minutos
-            const tempoStr = activity.moving_time;
-            const tempoParts = tempoStr.split(':');
-            let tempoMinutos = 0;
-            if (tempoParts.length === 2) {
-                tempoMinutos = parseInt(tempoParts[0]) + (parseInt(tempoParts[1]) / 60);
-            } else if (tempoParts.length === 3) {
-                tempoMinutos = (parseInt(tempoParts[0]) * 60) + parseInt(tempoParts[1]) + (parseInt(tempoParts[2]) / 60);
-            }
-
-            // Determina tipo de treino baseado no pace
-            let tipoTreino = 'Rodagem';
-            if (activity.pace) {
-                const paceStr = activity.pace.replace('/km', '');
-                const paceParts = paceStr.split(':');
-                if (paceParts.length === 2) {
-                    const paceMin = parseFloat(paceParts[0]) + (parseFloat(paceParts[1]) / 60);
-                    if (paceMin < 4.5) tipoTreino = 'Tiro';
-                    else if (paceMin < 5.5) tipoTreino = 'Longo';
-                }
-            }
-
-            // Salva no banco
-            await db.query(
-                `INSERT INTO corridas (
-                    distancia_km, 
-                    tempo_minutos, 
-                    tipo_treino, 
-                    local, 
-                    strava_id, 
-                    strava_name, 
-                    pace, 
-                    average_speed_kmh, 
-                    total_elevation_gain,
-                    data
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                [
-                    activity.distance_km,
-                    Math.round(tempoMinutos),
-                    tipoTreino,
-                    activity.timezone || 'Strava',
-                    activity.id,
-                    activity.name,
-                    activity.pace,
-                    activity.average_speed_kmh,
-                    activity.total_elevation_gain,
-                    activity.start_date_local ? new Date(activity.start_date_local) : new Date()
-                ]
-            );
-
-            console.log(`✅ Atividade ${activityId} sincronizada automaticamente!`);
+        if (existe.rows.length > 0) {
+            console.log(`ℹ️ Atividade ${activityId} já existe no banco`);
+            return;
         }
+
+        // Converte tempo do formato "MM:SS" ou "HH:MM:SS" para minutos
+        const tempoStr = activity.moving_time;
+        const tempoParts = tempoStr.split(':');
+        let tempoMinutos = 0;
+        if (tempoParts.length === 2) {
+            tempoMinutos = parseInt(tempoParts[0]) + (parseInt(tempoParts[1]) / 60);
+        } else if (tempoParts.length === 3) {
+            tempoMinutos = (parseInt(tempoParts[0]) * 60) + parseInt(tempoParts[1]) + (parseInt(tempoParts[2]) / 60);
+        }
+
+        // Determina tipo de treino baseado no pace
+        let tipoTreino = 'Rodagem';
+        if (activity.pace) {
+            const paceStr = activity.pace.replace('/km', '');
+            const paceParts = paceStr.split(':');
+            if (paceParts.length === 2) {
+                const paceMin = parseFloat(paceParts[0]) + (parseFloat(paceParts[1]) / 60);
+                if (paceMin < 4.5) tipoTreino = 'Tiro';
+                else if (paceMin < 5.5) tipoTreino = 'Longo';
+            }
+        }
+
+        // Salva no banco
+        await db.query(
+            `INSERT INTO corridas (
+                distancia_km, 
+                tempo_minutos, 
+                tipo_treino, 
+                local, 
+                strava_id, 
+                strava_name, 
+                pace, 
+                average_speed_kmh, 
+                total_elevation_gain,
+                data
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+                activity.distance_km,
+                Math.round(tempoMinutos),
+                tipoTreino,
+                activity.timezone || 'Strava',
+                activity.id,
+                activity.name,
+                activity.pace,
+                activity.average_speed_kmh,
+                activity.total_elevation_gain,
+                activity.start_date_local ? new Date(activity.start_date_local) : new Date()
+            ]
+        );
+
+        console.log(`✅ Atividade ${activityId} sincronizada automaticamente!`);
     } catch (err) {
-        console.error('❌ Erro ao processar webhook do Strava:', err);
-        // Não precisa responder novamente, já respondemos 200 OK no início
+        console.error('❌ Erro ao processar atividade:', err);
     }
-});
+}
 
 app.use(express.json());
 app.use(express.static('public'));

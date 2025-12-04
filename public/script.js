@@ -64,10 +64,17 @@ function renderizarListaEspecifica(categoria) {
             // Define a cor da barrinha de progresso
             let corBarra = pct < 100 ? '#3498db' : '#2ecc71';
             
+            // Melhora a qualidade da imagem se for do Google Books
+            let capaUrl = item.capa_url || 'https://via.placeholder.com/150x200?text=Sem+Capa';
+            if (capaUrl.includes('books.google.com') || capaUrl.includes('googleapis.com')) {
+                // Tenta melhorar a qualidade substituindo 'zoom=1' por 'zoom=2' ou removendo parâmetros de tamanho
+                capaUrl = capaUrl.replace(/zoom=\d+/, 'zoom=2').replace(/&w=\d+/, '').replace(/&h=\d+/, '');
+            }
+            
             // HTML do Cartão do Livro
             const htmlLivro = `
                 <div class="card-livro">
-                    <img src="${item.capa_url || 'https://via.placeholder.com/150x200?text=Sem+Capa'}" alt="${item.titulo}">
+                    <img src="${capaUrl}" alt="${item.titulo}" loading="lazy">
                     <strong>${item.titulo}</strong>
                     <div style="font-size:0.75em; color:#888; margin:3px 0;">
                         ${item.autor || 'Autor desconhecido'}
@@ -250,7 +257,16 @@ async function buscarLivro() {
         document.getElementById('livro-titulo').value = info.title;
         document.getElementById('livro-autor').value = info.authors ? info.authors.join(', ') : 'Desc.';
         document.getElementById('livro-paginas').value = info.pageCount || 0;
-        document.getElementById('livro-capa').value = info.imageLinks ? info.imageLinks.thumbnail : '';
+        // Tenta pegar a melhor qualidade de imagem disponível
+        let capaUrl = '';
+        if (info.imageLinks) {
+            // Prioriza: large > medium > small > thumbnail
+            capaUrl = info.imageLinks.large || 
+                      info.imageLinks.medium || 
+                      info.imageLinks.small || 
+                      info.imageLinks.thumbnail || '';
+        }
+        document.getElementById('livro-capa').value = capaUrl;
         divRes.innerHTML = `✅ ${info.title}`;
     } else { divRes.innerHTML = "❌ Nada."; }
 }

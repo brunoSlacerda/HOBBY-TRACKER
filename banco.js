@@ -1,5 +1,29 @@
 const { Pool } = require('pg');
-const connectionString = process.env.DATABASE_URL || 'postgresql://hobby_db_jjq6_user:v0OUKloX7Q6Y0rhOmjxbDAdaptGyKm7Z@dpg-d4nha7ndiees73c2ns30-a/hobby_db_jjq6';
+
+// Usa a variável de ambiente DATABASE_URL
+// No Render: configurada automaticamente
+// Localmente: configure no arquivo .env
+let connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+    console.error('❌ ERRO: DATABASE_URL não configurada!');
+    console.error('   Crie um arquivo .env com: DATABASE_URL=sua_url_aqui');
+    process.exit(1);
+}
+
+// Corrige URL incompleta do Render (adiciona domínio se necessário)
+// Se a URL não tiver um ponto após o hostname, tenta adicionar o domínio padrão do Render
+if (connectionString.includes('@dpg-') && !connectionString.includes('render.com')) {
+    // Tenta adicionar o domínio mais comum do Render (Oregon)
+    // Se não funcionar, você precisa copiar a URL completa do painel do Render
+    const match = connectionString.match(/@(dpg-[^/]+)/);
+    if (match) {
+        const hostname = match[1];
+        connectionString = connectionString.replace(`@${hostname}`, `@${hostname}.oregon-postgres.render.com`);
+        console.log('⚠️  Tentando corrigir URL do banco automaticamente...');
+        console.log('   Se não funcionar, copie a URL completa do painel do Render');
+    }
+}
 
 const pool = new Pool({
   connectionString,
@@ -8,10 +32,10 @@ const pool = new Pool({
 
 const criarTabelas = async () => {
     try {
-        // 1. Apagamos a tabela antiga para recriar com a nova estrutura
-        await pool.query(`DROP TABLE IF EXISTS livros`);
-
-        // 2. Nova Tabela LIVROS (Mais completa)
+        // CRIA TODAS AS TABELAS SEM APAGAR DADOS EXISTENTES
+        // Usa CREATE TABLE IF NOT EXISTS para não apagar dados
+        
+        // Tabela LIVROS
         await pool.query(`
             CREATE TABLE IF NOT EXISTS livros (
                 id SERIAL PRIMARY KEY,
@@ -19,29 +43,91 @@ const criarTabelas = async () => {
                 autor VARCHAR(255),
                 total_paginas INTEGER,
                 pagina_atual INTEGER DEFAULT 0,
-                status VARCHAR(20) DEFAULT 'novo', -- 'novo', 'lendo', 'concluido'
-                nota INTEGER DEFAULT 0,            -- 1 a 10
-                resumo TEXT,                       -- Resumo pessoal
+                status VARCHAR(20) DEFAULT 'novo',
+                nota INTEGER DEFAULT 0,
+                resumo TEXT,
                 capa_url TEXT,
                 data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
 
-        // As outras tabelas não precisam ser recriadas, mas o IF NOT EXISTS garante que não dê erro
-        // ... (Seu código das outras tabelas corridas/treinos/trabalho continua aqui igualzinho, não precisa apagar) ...
+        // Adiciona colunas que podem não existir (migração segura)
+        // Verifica se as colunas existem antes de adicionar
+        const colunas = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'livros'
+        `);
+        const colunasExistentes = colunas.rows.map(r => r.column_name);
         
-        console.log('✅ Tabela de Livros atualizada para versão Kanban!');
+        if (!colunasExistentes.includes('status')) {
+            await pool.query(`ALTER TABLE livros ADD COLUMN status VARCHAR(20) DEFAULT 'novo'`);
+        }
+        if (!colunasExistentes.includes('nota')) {
+            await pool.query(`ALTER TABLE livros ADD COLUMN nota INTEGER DEFAULT 0`);
+        }
+        if (!colunasExistentes.includes('resumo')) {
+            await pool.query(`ALTER TABLE livros ADD COLUMN resumo TEXT`);
+        }
+
+        // Tabela CORRIDAS
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS corridas (
+                id SERIAL PRIMARY KEY,
+                distancia_km DECIMAL(10,2),
+                tempo_minutos INTEGER,
+                tipo_treino VARCHAR(50),
+                local VARCHAR(255),
+                data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela TREINOS
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS treinos (
+                id SERIAL PRIMARY KEY,
+                foco VARCHAR(100),
+                duracao_min INTEGER,
+                carga_sensacao VARCHAR(50),
+                data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela TRABALHO
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS trabalho (
+                id SERIAL PRIMARY KEY,
+                tarefas_concluidas INTEGER,
+                nivel_produtividade INTEGER,
+                observacao TEXT,
+                data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        console.log('✅ Tabelas verificadas/criadas com sucesso!');
     } catch (err) {
-        console.error('❌ Erro:', err);
+        console.error('❌ Erro ao criar tabelas:', err);
     }
 };
 
-pool.connect((err) => {
-    if (err) console.error('Erro conexão:', err.message);
-    else {
+// Garante que as tabelas sejam criadas apenas uma vez na inicialização
+let tabelasCriadas = false;
+
+const inicializarBanco = async () => {
+    if (tabelasCriadas) return;
+    
+    try {
+        const client = await pool.connect();
         console.log('Conectado ao DB!');
-        criarTabelas();
+        await criarTabelas();
+        tabelasCriadas = true;
+        client.release();
+    } catch (err) {
+        console.error('Erro ao conectar ao banco:', err.message);
     }
-});
+};
+
+// Inicializa o banco quando o módulo é carregado
+inicializarBanco();
 
 module.exports = pool;

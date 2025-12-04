@@ -18,10 +18,15 @@ app.get('/webhook/strava', (req, res) => {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
     
+    console.log('🔍 GET recebido do Strava:', { mode, token: token ? '***' : 'vazio', challenge });
+    
+    // O Strava envia hub.mode=subscribe e hub.challenge para verificação
     if (mode === 'subscribe' && challenge) {
         console.log('✅ Webhook do Strava verificado via GET - Challenge:', challenge);
-        res.status(200).send(challenge);
+        // Retorna apenas o challenge como texto plano (não JSON)
+        res.status(200).type('text/plain').send(challenge);
     } else {
+        console.warn('⚠️ GET inválido do Strava:', { mode, challenge: challenge ? 'presente' : 'ausente' });
         res.status(403).send('Forbidden');
     }
 });

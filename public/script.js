@@ -50,12 +50,19 @@ async function carregarDadosNoCache() {
 function renderizarListaEspecifica(categoria) {
     const divPadrao = document.getElementById('lista-especifica');
     const divKanban = document.getElementById('area-kanban-livros');
+    const divKanbanCorridas = document.getElementById('area-kanban-corridas');
     
     // Limpa tudo
     divPadrao.innerHTML = '';
     document.getElementById('lista-novos').innerHTML = '';
     document.getElementById('lista-lendo').innerHTML = '';
     document.getElementById('lista-concluidos').innerHTML = '';
+    
+    // Limpa colunas de corridas
+    ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'].forEach(dia => {
+        const coluna = document.getElementById(`corridas-${dia}`);
+        if (coluna) coluna.innerHTML = '';
+    });
 
     const lista = cacheDados[categoria] || [];
 
@@ -154,41 +161,83 @@ function renderizarListaEspecifica(categoria) {
         }
 
     } else {
-        // SE FOR OUTROS (Corrida, Treino...), MOSTRA LISTA NORMAL
-        divPadrao.style.display = 'block';
-        divKanban.style.display = 'none';
-        
+        // SE FOR CORRIDAS, MOSTRA KANBAN DE DIAS DA SEMANA
         if (categoria === 'corridas') {
+            divPadrao.style.display = 'none';
+            divKanban.style.display = 'none';
+            divKanbanCorridas.style.display = 'block';
+            
+            // Agrupa corridas por dia da semana
+            const corridasPorDia = {
+                0: [], // Domingo
+                1: [], // Segunda
+                2: [], // Terça
+                3: [], // Quarta
+                4: [], // Quinta
+                5: [], // Sexta
+                6: []  // Sábado
+            };
+            
             lista.forEach(item => {
-                const html = `
-                    <div class="card" style="margin-bottom: 15px;">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div style="flex: 1;">
-                                ${item.strava_name ? `<strong style="color: #ff9800;">🏃‍♂️ ${item.strava_name}</strong>` : '<strong>🏃‍♂️ Corrida</strong>'}
-                                ${item.strava_id ? '<span style="font-size: 0.8em; color: #999; margin-left: 5px;">(Strava)</span>' : ''}
-                                <div style="margin-top: 8px; font-size: 0.9em; color: #666;">
-                                    <div>📏 <strong>${item.distancia_km} km</strong></div>
-                                    <div>⏱️ Tempo: <strong>${item.tempo_minutos} min</strong></div>
-                                    ${item.pace ? `<div>⚡ Ritmo: <strong>${item.pace}</strong></div>` : ''}
-                                    ${item.average_speed_kmh ? `<div>🚀 Velocidade média: <strong>${item.average_speed_kmh} km/h</strong></div>` : ''}
-                                    ${item.total_elevation_gain > 0 ? `<div>⛰️ Elevação: <strong>${item.total_elevation_gain} m</strong></div>` : ''}
-                                    <div>📍 ${item.local || 'Não informado'}</div>
-                                    <div style="margin-top: 5px;">
-                                        <span class="badge badge-corrida">${item.tipo_treino || 'Rodagem'}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <button onclick="deletarItem('corridas', ${item.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
-                        </div>
-                        <div style="font-size: 0.8em; color: #999; margin-top: 8px;">
-                            ${new Date(item.data).toLocaleString('pt-BR')}
-                        </div>
-                    </div>
-                `;
-                divPadrao.innerHTML += html;
+                const data = new Date(item.data);
+                const diaSemana = data.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+                corridasPorDia[diaSemana].push(item);
             });
-        } else if (categoria === 'treinos') {
-            lista.forEach(item => {
+            
+            // Renderiza cada dia
+            const dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+            dias.forEach((diaNome, index) => {
+                const coluna = document.getElementById(`corridas-${diaNome}`);
+                if (!coluna) return;
+                
+                const corridasDoDia = corridasPorDia[index];
+                
+                if (corridasDoDia.length === 0) {
+                    coluna.innerHTML = '<div style="text-align: center; color: #999; font-size: 0.8em; padding: 20px;">Sem corridas</div>';
+                    return;
+                }
+                
+                corridasDoDia.forEach(item => {
+                    const data = new Date(item.data);
+                    const hora = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const dataFormatada = data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    
+                    const html = `
+                        <div class="card-corrida">
+                            <div class="card-corrida-header">
+                                <div>
+                                    <div class="card-corrida-title">
+                                        ${item.strava_name ? `🏃‍♂️ ${item.strava_name}` : '🏃‍♂️ Corrida'}
+                                    </div>
+                                    ${item.strava_id ? '<span class="card-corrida-strava">(Strava)</span>' : ''}
+                                </div>
+                                <button class="card-corrida-delete" onclick="deletarItem('corridas', ${item.id})" title="Deletar">🗑️</button>
+                            </div>
+                            <div class="card-corrida-metrics">
+                                <div>📏 <strong>${item.distancia_km} km</strong></div>
+                                <div>⏱️ <strong>${item.tempo_minutos} min</strong></div>
+                                ${item.pace ? `<div>⚡ <strong>${item.pace}</strong></div>` : ''}
+                                ${item.average_speed_kmh ? `<div>🚀 <strong>${item.average_speed_kmh} km/h</strong></div>` : ''}
+                                ${item.total_elevation_gain > 0 ? `<div>⛰️ <strong>${item.total_elevation_gain} m</strong></div>` : ''}
+                                <div class="card-corrida-badge">${item.tipo_treino || 'Rodagem'}</div>
+                            </div>
+                            <div class="card-corrida-time">
+                                ${dataFormatada} às ${hora}
+                            </div>
+                        </div>
+                    `;
+                    coluna.innerHTML += html;
+                });
+            });
+            
+        } else {
+            // SE FOR OUTROS (Treino, Trabalho...), MOSTRA LISTA NORMAL
+            divPadrao.style.display = 'block';
+            divKanban.style.display = 'none';
+            divKanbanCorridas.style.display = 'none';
+            
+            if (categoria === 'treinos') {
+                lista.forEach(item => {
                 const html = `
                     <div class="card" style="margin-bottom: 15px;">
                         <strong>💪 ${item.foco || 'Treino'}</strong>

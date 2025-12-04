@@ -229,11 +229,119 @@ button:hover { background-color: #218838; }
     margin: 0 2px;
 }
 
+/* --- KANBAN DE CORRIDAS (Dias da Semana) --- */
+.kanban-semana {
+    grid-template-columns: repeat(7, minmax(140px, 1fr));
+    gap: 12px;
+    overflow-x: auto;
+}
+
+.kanban-coluna-dia {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 200px;
+    border-top: 4px solid #e67e22;
+    display: flex;
+    flex-direction: column;
+}
+
+.kanban-titulo-dia {
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.card-corrida {
+    background: white;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-size: 0.85em;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 3px solid #ff9800;
+}
+
+.card-corrida:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.card-corrida-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.card-corrida-title {
+    font-weight: bold;
+    color: #ff9800;
+    font-size: 0.9em;
+    flex: 1;
+}
+
+.card-corrida-strava {
+    font-size: 0.7em;
+    color: #999;
+    margin-left: 5px;
+}
+
+.card-corrida-delete {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+
+.card-corrida-metrics {
+    font-size: 0.85em;
+    color: #666;
+    line-height: 1.6;
+}
+
+.card-corrida-metrics div {
+    margin: 3px 0;
+}
+
+.card-corrida-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    color: white;
+    background: #e67e22;
+    margin-top: 5px;
+}
+
+.card-corrida-time {
+    font-size: 0.75em;
+    color: #999;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
 /* Responsividade para telas menores */
 @media (max-width: 1024px) {
     .kanban-container {
         grid-template-columns: repeat(3, minmax(240px, 1fr));
         gap: 15px;
+    }
+    
+    .kanban-semana {
+        grid-template-columns: repeat(4, minmax(140px, 1fr));
     }
 }
 
@@ -250,6 +358,10 @@ button:hover { background-color: #218838; }
     
     .kanban-coluna {
         max-height: 400px;
+    }
+    
+    .kanban-semana {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
     }
 }
 

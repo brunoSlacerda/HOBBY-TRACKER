@@ -77,7 +77,7 @@ async function createWebhook(accessToken) {
             client_id: STRAVA_CLIENT_ID,
             client_secret: STRAVA_CLIENT_SECRET,
             callback_url: WEBHOOK_URL,
-            verify_token: 'hobby-tracker-verification-token' // Token de verificação
+            verify_token: 'STRAVA_VERIFY_TOKEN' // Token de verificação (deve corresponder ao VERIFY_TOKEN no servidor)
         });
 
         return response.data;

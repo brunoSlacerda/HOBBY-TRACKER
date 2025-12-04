@@ -89,11 +89,11 @@ function renderizarListaEspecifica(categoria) {
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:5px; flex-wrap:wrap;">
                         ${item.status !== 'concluido' ? 
                             `<button onclick="atualizarPagina(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.total_paginas})" title="Atualizar página">📖</button>` : 
-                            `<button onclick="abrirModalResumo(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.nota || ''}, '${(item.resumo || '').replace(/'/g, "\\'")}')" title="Avaliar livro" style="background:#f39c12; color:white; font-weight:bold;">
+                            `<button onclick="abrirModalResumo(${item.id}, ${JSON.stringify(item.titulo)}, ${item.nota || 'null'}, ${JSON.stringify(item.resumo || '')})" title="Avaliar livro" style="background:#f39c12; color:white; font-weight:bold;">
                                 ⭐ ${item.nota || 'Avaliar'}
                             </button>`
                         }
-                        <button onclick="abrirModalResumo(${item.id}, '${item.titulo.replace(/'/g, "\\'")}', ${item.nota || ''}, '${(item.resumo || '').replace(/'/g, "\\'")}')" title="Ver/Editar resumo" style="background:#9b59b6;">📝</button>
+                        <button onclick="abrirModalResumo(${item.id}, ${JSON.stringify(item.titulo)}, ${item.nota || 'null'}, ${JSON.stringify(item.resumo || '')})" title="Ver/Editar resumo" style="background:#9b59b6;">📝</button>
                         <button onclick="deletarItem('livros', ${item.id})" title="Deletar livro" style="background:#e74c3c;">🗑️</button>
                     </div>
                 </div>
@@ -152,11 +152,31 @@ async function atualizarPagina(id, titulo, total) {
 
 // --- FUNÇÕES DO MODAL DE RESUMO ---
 function abrirModalResumo(id, titulo, nota, resumo) {
-    document.getElementById('modal-resumo').style.display = 'flex';
-    document.getElementById('modal-id-livro').value = id;
-    document.getElementById('modal-titulo-livro').innerText = titulo;
-    document.getElementById('modal-nota').value = nota || '';
-    document.getElementById('modal-texto').value = resumo || '';
+    try {
+        console.log('Abrindo modal:', { id, titulo, nota, resumo });
+        
+        const modal = document.getElementById('modal-resumo');
+        if (!modal) {
+            console.error('Modal não encontrado!');
+            alert('Erro: Modal não encontrado. Recarregue a página.');
+            return;
+        }
+        
+        // Trata valores null/undefined
+        const notaValor = (nota === null || nota === undefined || nota === 'null') ? '' : nota;
+        const resumoValor = (resumo === null || resumo === undefined) ? '' : resumo;
+        
+        modal.style.display = 'flex';
+        document.getElementById('modal-id-livro').value = id;
+        document.getElementById('modal-titulo-livro').innerText = titulo || 'Livro';
+        document.getElementById('modal-nota').value = notaValor;
+        document.getElementById('modal-texto').value = resumoValor;
+        
+        console.log('Modal aberto com sucesso');
+    } catch (err) {
+        console.error('Erro ao abrir modal:', err);
+        alert('Erro ao abrir modal. Verifique o console para mais detalhes.');
+    }
 }
 
 function fecharModal() {

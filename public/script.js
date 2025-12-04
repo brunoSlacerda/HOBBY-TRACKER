@@ -1,8 +1,10 @@
 // Variável global para guardar os dados e não precisar baixar toda hora
 let cacheDados = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-    carregarDadosNoCache(); // Baixa os dados assim que abre o site
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM carregado, carregando dados...');
+    await carregarDadosNoCache(); // Baixa os dados assim que abre o site
+    console.log('Dados iniciais carregados');
 });
 
 // --- NAVEGAÇÃO ENTRE TELAS ---
@@ -13,63 +15,114 @@ function voltarHome() {
 }
 
 async function abrirDetalhes(categoria) {
-    // 1. Troca de tela
-    document.getElementById('tela-home').classList.remove('ativa');
-    document.getElementById('tela-detalhes').classList.add('ativa');
+    try {
+        // 1. Troca de tela
+        document.getElementById('tela-home').classList.remove('ativa');
+        document.getElementById('tela-detalhes').classList.add('ativa');
 
-    // 2. Atualiza o Título
-    const titulos = {
-        'livros': '📚 Meus Livros',
-        'corridas': '🏃‍♂️ Minhas Corridas',
-        'treinos': '💪 Meus Treinos',
-        'trabalho': '💼 Produtividade'
-    };
-    document.getElementById('titulo-detalhe').innerText = titulos[categoria];
+        // 2. Atualiza o Título
+        const titulos = {
+            'livros': '📚 Meus Livros',
+            'corridas': '🏃‍♂️ Minhas Corridas',
+            'treinos': '💪 Meus Treinos',
+            'trabalho': '💼 Produtividade'
+        };
+        document.getElementById('titulo-detalhe').innerText = titulos[categoria];
 
-    // 3. Mostra/oculta botão de sincronizar Strava
-    const btnSync = document.getElementById('btn-sync-strava');
-    if (btnSync) {
-        btnSync.style.display = categoria === 'corridas' ? 'block' : 'none';
+        // 3. Mostra/oculta botão de sincronizar Strava
+        const btnSync = document.getElementById('btn-sync-strava');
+        if (btnSync) {
+            btnSync.style.display = categoria === 'corridas' ? 'block' : 'none';
+        }
+
+        // 4. Garante que os dados estão carregados antes de renderizar
+        if (!cacheDados) {
+            await carregarDadosNoCache();
+        }
+
+        // 5. Renderiza a lista específica
+        renderizarListaEspecifica(categoria);
+    } catch (err) {
+        console.error('Erro ao abrir detalhes:', err);
+        alert('Erro ao carregar: ' + err.message);
     }
-
-    // 4. Renderiza a lista específica
-    renderizarListaEspecifica(categoria);
 }
 
 // --- BANCO DE DADOS E RENDERIZAÇÃO ---
 
 // Baixa tudo do servidor e guarda na memória (cache)
 async function carregarDadosNoCache() {
-    const resp = await fetch('/resumo');
-    cacheDados = await resp.json();
-    // Se estiver na tela de detalhes, atualiza ela
-    // (Útil para quando acabamos de salvar algo)
+    try {
+        const resp = await fetch('/resumo');
+        if (!resp.ok) {
+            throw new Error(`Erro ao carregar dados: ${resp.status}`);
+        }
+        cacheDados = await resp.json();
+        console.log('Dados carregados:', cacheDados);
+        // Se estiver na tela de detalhes, atualiza ela
+        // (Útil para quando acabamos de salvar algo)
+    } catch (err) {
+        console.error('Erro ao carregar dados:', err);
+        cacheDados = { livros: [], corridas: [], treinos: [], trabalho: [] };
+    }
 }
 
 // --- RENDERIZAÇÃO INTELIGENTE ---
 function renderizarListaEspecifica(categoria) {
-    const divPadrao = document.getElementById('lista-especifica');
-    const divKanban = document.getElementById('area-kanban-livros');
-    const divKanbanCorridas = document.getElementById('area-kanban-corridas');
-    
-    // Limpa tudo
-    divPadrao.innerHTML = '';
-    document.getElementById('lista-novos').innerHTML = '';
-    document.getElementById('lista-lendo').innerHTML = '';
-    document.getElementById('lista-concluidos').innerHTML = '';
-    
-    // Limpa colunas de corridas
-    ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'].forEach(dia => {
-        const coluna = document.getElementById(`corridas-${dia}`);
-        if (coluna) coluna.innerHTML = '';
-    });
+    try {
+        console.log('Renderizando categoria:', categoria);
+        const divPadrao = document.getElementById('lista-especifica');
+        const divKanban = document.getElementById('area-kanban-livros');
+        const divKanbanCorridas = document.getElementById('area-kanban-corridas');
+        
+        if (!divPadrao) {
+            console.error('divPadrao não encontrado!');
+            return;
+        }
+        if (!divKanban) {
+            console.error('divKanban não encontrado!');
+        }
+        if (!divKanbanCorridas) {
+            console.error('divKanbanCorridas não encontrado!');
+        }
+        
+        // Limpa tudo
+        divPadrao.innerHTML = '';
+        const listaNovos = document.getElementById('lista-novos');
+        const listaLendo = document.getElementById('lista-lendo');
+        const listaConcluidos = document.getElementById('lista-concluidos');
+        
+        if (listaNovos) listaNovos.innerHTML = '';
+        if (listaLendo) listaLendo.innerHTML = '';
+        if (listaConcluidos) listaConcluidos.innerHTML = '';
+        
+        // Limpa colunas de corridas
+        ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'].forEach(dia => {
+            const coluna = document.getElementById(`corridas-${dia}`);
+            if (coluna) coluna.innerHTML = '';
+        });
 
-    const lista = cacheDados[categoria] || [];
+        // Verifica se cacheDados existe
+        if (!cacheDados) {
+            console.warn('cacheDados não carregado ainda, tentando carregar...');
+            carregarDadosNoCache().then(() => {
+                renderizarListaEspecifica(categoria);
+            });
+            return;
+        }
 
-    // SE FOR LIVROS, MOSTRA O KANBAN
-    if (categoria === 'livros') {
-        divPadrao.style.display = 'none';
-        divKanban.style.display = 'block';
+        const lista = cacheDados[categoria] || [];
+
+        // SE FOR LIVROS, MOSTRA O KANBAN
+        if (categoria === 'livros') {
+            divPadrao.style.display = 'none';
+            divKanban.style.display = 'block';
+            if (divKanbanCorridas) divKanbanCorridas.style.display = 'none';
+            
+            if (lista.length === 0) {
+                document.getElementById('lista-novos').innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Nenhum livro encontrado</div>';
+                return;
+            }
 
         lista.forEach(item => {
             const pct = Math.round((item.pagina_atual / item.total_paginas) * 100) || 0;
@@ -160,12 +213,17 @@ function renderizarListaEspecifica(categoria) {
             });
         }
 
-    } else {
-        // SE FOR CORRIDAS, MOSTRA KANBAN DE DIAS DA SEMANA
-        if (categoria === 'corridas') {
+        } else if (categoria === 'corridas') {
+            // SE FOR CORRIDAS, MOSTRA KANBAN DE DIAS DA SEMANA
             divPadrao.style.display = 'none';
             divKanban.style.display = 'none';
-            divKanbanCorridas.style.display = 'block';
+            if (divKanbanCorridas) {
+                divKanbanCorridas.style.display = 'block';
+            } else {
+                console.error('divKanbanCorridas não encontrado!');
+                divPadrao.innerHTML = '<div style="text-align: center; padding: 40px; color: #e74c3c;">Erro: Elemento do Kanban não encontrado</div>';
+                return;
+            }
             
             // Agrupa corridas por dia da semana
             const corridasPorDia = {
@@ -179,16 +237,27 @@ function renderizarListaEspecifica(categoria) {
             };
             
             lista.forEach(item => {
-                const data = new Date(item.data);
-                const diaSemana = data.getDay(); // 0 = Domingo, 1 = Segunda, etc.
-                corridasPorDia[diaSemana].push(item);
+                try {
+                    const data = new Date(item.data);
+                    if (isNaN(data.getTime())) {
+                        console.warn('Data inválida para item:', item);
+                        return;
+                    }
+                    const diaSemana = data.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+                    corridasPorDia[diaSemana].push(item);
+                } catch (err) {
+                    console.error('Erro ao processar item:', item, err);
+                }
             });
             
             // Renderiza cada dia
             const dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
             dias.forEach((diaNome, index) => {
                 const coluna = document.getElementById(`corridas-${diaNome}`);
-                if (!coluna) return;
+                if (!coluna) {
+                    console.warn(`Coluna corridas-${diaNome} não encontrada!`);
+                    return;
+                }
                 
                 const corridasDoDia = corridasPorDia[index];
                 
@@ -233,8 +302,8 @@ function renderizarListaEspecifica(categoria) {
         } else {
             // SE FOR OUTROS (Treino, Trabalho...), MOSTRA LISTA NORMAL
             divPadrao.style.display = 'block';
-            divKanban.style.display = 'none';
-            divKanbanCorridas.style.display = 'none';
+            if (divKanban) divKanban.style.display = 'none';
+            if (divKanbanCorridas) divKanbanCorridas.style.display = 'none';
             
             if (categoria === 'treinos') {
                 lista.forEach(item => {
@@ -269,6 +338,13 @@ function renderizarListaEspecifica(categoria) {
                 `;
                 divPadrao.innerHTML += html;
             });
+        }
+        }
+    } catch (err) {
+        console.error('Erro ao renderizar:', err);
+        const divPadrao = document.getElementById('lista-especifica');
+        if (divPadrao) {
+            divPadrao.innerHTML = `<div style="text-align: center; padding: 40px; color: #e74c3c;">Erro ao carregar dados: ${err.message}</div>`;
         }
     }
 }

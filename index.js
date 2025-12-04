@@ -7,7 +7,109 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 8080; 
 const db = require('./banco.js');
-const { getLatestActivity } = require('./stravaService');
+const { getLatestActivity, getActivityById, verifyWebhookSignature } = require('./stravaService');
+
+// IMPORTANTE: Registrar webhook ANTES do express.json() para receber body raw
+// --- ROTA: Webhook do Strava (Chamado automaticamente quando uma nova atividade é criada) ---
+app.post('/webhook/strava', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+        // Verifica a assinatura do webhook para segurança
+        const signature = req.headers['x-hub-signature-256'];
+        const bodyString = req.body.toString();
+        
+        if (!verifyWebhookSignature(signature, bodyString)) {
+            console.warn('⚠️ Webhook do Strava rejeitado: assinatura inválida');
+            return res.status(401).json({ erro: 'Assinatura inválida' });
+        }
+
+        const event = JSON.parse(bodyString);
+        
+        // O Strava envia um evento de verificação quando você configura o webhook
+        if (event.object_type === 'subscription') {
+            console.log('✅ Webhook do Strava verificado com sucesso');
+            return res.status(200).json({ 'hub.challenge': event.hub.challenge });
+        }
+
+        // Processa apenas eventos de criação de atividade
+        if (event.object_type === 'activity' && event.aspect_type === 'create') {
+            const activityId = event.object_id;
+            console.log(`🔄 Nova atividade detectada no Strava: ${activityId}`);
+
+            // Busca os dados completos da atividade
+            const activity = await getActivityById(activityId);
+
+            // Verifica se já existe no banco
+            const existe = await db.query(
+                'SELECT id FROM corridas WHERE strava_id = $1',
+                [activity.id]
+            );
+
+            if (existe.rows.length > 0) {
+                console.log(`ℹ️ Atividade ${activityId} já existe no banco`);
+                return res.status(200).json({ mensagem: 'Atividade já sincronizada' });
+            }
+
+            // Converte tempo do formato "MM:SS" ou "HH:MM:SS" para minutos
+            const tempoStr = activity.moving_time;
+            const tempoParts = tempoStr.split(':');
+            let tempoMinutos = 0;
+            if (tempoParts.length === 2) {
+                tempoMinutos = parseInt(tempoParts[0]) + (parseInt(tempoParts[1]) / 60);
+            } else if (tempoParts.length === 3) {
+                tempoMinutos = (parseInt(tempoParts[0]) * 60) + parseInt(tempoParts[1]) + (parseInt(tempoParts[2]) / 60);
+            }
+
+            // Determina tipo de treino baseado no pace
+            let tipoTreino = 'Rodagem';
+            if (activity.pace) {
+                const paceStr = activity.pace.replace('/km', '');
+                const paceParts = paceStr.split(':');
+                if (paceParts.length === 2) {
+                    const paceMin = parseFloat(paceParts[0]) + (parseFloat(paceParts[1]) / 60);
+                    if (paceMin < 4.5) tipoTreino = 'Tiro';
+                    else if (paceMin < 5.5) tipoTreino = 'Longo';
+                }
+            }
+
+            // Salva no banco
+            await db.query(
+                `INSERT INTO corridas (
+                    distancia_km, 
+                    tempo_minutos, 
+                    tipo_treino, 
+                    local, 
+                    strava_id, 
+                    strava_name, 
+                    pace, 
+                    average_speed_kmh, 
+                    total_elevation_gain,
+                    data
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [
+                    activity.distance_km,
+                    Math.round(tempoMinutos),
+                    tipoTreino,
+                    activity.timezone || 'Strava',
+                    activity.id,
+                    activity.name,
+                    activity.pace,
+                    activity.average_speed_kmh,
+                    activity.total_elevation_gain,
+                    activity.start_date_local ? new Date(activity.start_date_local) : new Date()
+                ]
+            );
+
+            console.log(`✅ Atividade ${activityId} sincronizada automaticamente!`);
+            return res.status(200).json({ mensagem: 'Atividade sincronizada automaticamente', atividade: activity });
+        }
+
+        // Responde para outros tipos de eventos (mas não processa)
+        res.status(200).json({ mensagem: 'Evento recebido' });
+    } catch (err) {
+        console.error('❌ Erro ao processar webhook do Strava:', err);
+        res.status(500).json({ erro: err.message });
+    }
+});
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -105,7 +207,7 @@ app.put('/atualizar/livro/:id', async (req, res) => {
     }
 });
 
-// --- ROTA: Sincronizar Corridas do Strava ---
+// --- ROTA: Sincronizar Corridas do Strava (Manual) ---
 app.post('/sincronizar/strava', async (req, res) => {
     try {
         // Busca última atividade do Strava

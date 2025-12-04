@@ -127,8 +127,85 @@ async function getLatestActivity() {
     }
 }
 
+/**
+ * Busca uma atividade específica do Strava por ID
+ * @param {number} activityId - ID da atividade no Strava
+ * @returns {Promise<Object>} Objeto com dados formatados da atividade
+ */
+async function getActivityById(activityId) {
+    try {
+        const accessToken = await getAccessToken();
+
+        const response = await axios.get(`https://www.strava.com/api/v3/activities/${activityId}`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        const activity = response.data;
+
+        // Processa e formata os dados (mesma lógica do getLatestActivity)
+        const formattedData = {
+            id: activity.id,
+            name: activity.name || 'Sem nome',
+            type: activity.type || 'Run',
+            distance_km: activity.distance ? parseFloat((activity.distance / 1000).toFixed(2)) : 0,
+            moving_time: activity.moving_time ? formatTime(activity.moving_time) : '00:00',
+            elapsed_time: activity.elapsed_time ? formatTime(activity.elapsed_time) : '00:00',
+            pace: activity.average_speed ? convertSpeedToPace(activity.average_speed) : null,
+            average_speed_kmh: activity.average_speed ? parseFloat((activity.average_speed * 3.6).toFixed(2)) : null,
+            max_speed_kmh: activity.max_speed ? parseFloat((activity.max_speed * 3.6).toFixed(2)) : null,
+            total_elevation_gain: activity.total_elevation_gain ? parseFloat(activity.total_elevation_gain.toFixed(2)) : 0,
+            start_date: activity.start_date || null,
+            start_date_local: activity.start_date_local || null,
+            timezone: activity.timezone || null,
+            kudos_count: activity.kudos_count || 0,
+            achievement_count: activity.achievement_count || 0
+        };
+
+        return formattedData;
+    } catch (error) {
+        if (error.response) {
+            throw new Error(`Erro ao buscar atividade: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+        } else {
+            throw new Error(`Erro ao buscar atividade: ${error.message}`);
+        }
+    }
+}
+
+/**
+ * Verifica a assinatura do webhook do Strava
+ * @param {string} signature - Assinatura recebida no header X-Hub-Signature-256
+ * @param {string} body - Corpo da requisição (string)
+ * @returns {boolean} True se a assinatura é válida
+ */
+function verifyWebhookSignature(signature, body) {
+    const crypto = require('crypto');
+    
+    if (!signature) {
+        return false;
+    }
+
+    // Remove o prefixo "sha256=" se existir
+    const receivedSignature = signature.replace('sha256=', '');
+    
+    // Calcula a assinatura esperada
+    const expectedSignature = crypto
+        .createHmac('sha256', STRAVA_CLIENT_SECRET)
+        .update(body)
+        .digest('hex');
+
+    // Compara de forma segura (timing-safe)
+    return crypto.timingSafeEqual(
+        Buffer.from(receivedSignature, 'hex'),
+        Buffer.from(expectedSignature, 'hex')
+    );
+}
+
 module.exports = {
     getLatestActivity,
-    getAccessToken
+    getActivityById,
+    getAccessToken,
+    verifyWebhookSignature
 };
 

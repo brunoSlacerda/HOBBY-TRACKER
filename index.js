@@ -121,12 +121,9 @@ app.post('/webhook/strava', express.raw({ type: 'application/json' }), async (re
 
             console.log(`✅ Atividade ${activityId} sincronizada automaticamente!`);
         }
-
-        // Responde para outros tipos de eventos (mas não processa)
-        res.status(200).json({ mensagem: 'Evento recebido' });
     } catch (err) {
         console.error('❌ Erro ao processar webhook do Strava:', err);
-        res.status(500).json({ erro: err.message });
+        // Não precisa responder novamente, já respondemos 200 OK no início
     }
 });
 

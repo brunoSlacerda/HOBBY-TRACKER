@@ -66,7 +66,7 @@ app.post('/webhook/strava', express.raw({ type: 'application/json' }), async (re
 
             if (existe.rows.length > 0) {
                 console.log(`ℹ️ Atividade ${activityId} já existe no banco`);
-                return res.status(200).json({ mensagem: 'Atividade já sincronizada' });
+                return; // Já respondemos 200 OK acima
             }
 
             // Converte tempo do formato "MM:SS" ou "HH:MM:SS" para minutos
@@ -120,7 +120,6 @@ app.post('/webhook/strava', express.raw({ type: 'application/json' }), async (re
             );
 
             console.log(`✅ Atividade ${activityId} sincronizada automaticamente!`);
-            return res.status(200).json({ mensagem: 'Atividade sincronizada automaticamente', atividade: activity });
         }
 
         // Responde para outros tipos de eventos (mas não processa)

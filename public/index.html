@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hobby Tracker Pro</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style/style.css">
+    <link rel="stylesheet" href="style/corridas.css">
     <style>
         /* Pequeno ajuste para esconder as seções por padrão */
         .secao-hobby { display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px; }
@@ -48,15 +49,6 @@
             </div>
 
             <div id="campos-corrida" class="secao-hobby">
-                <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #ffc107;">
-                    <strong>🔄 Sincronizar do Strava:</strong>
-                    <button onclick="sincronizarStrava()" style="width: 100%; margin-top: 5px; background: #ff9800; color: white;">
-                        📥 Buscar última corrida do Strava
-                    </button>
-                    <small style="display: block; margin-top: 5px; color: #666;">
-                        Ou preencha manualmente abaixo
-                    </small>
-                </div>
                 <input type="number" id="corrida-dist" placeholder="Distância (Km)" step="0.1">
                 <input type="number" id="corrida-tempo" placeholder="Tempo (min)">
                 <select id="corrida-tipo">
@@ -117,12 +109,7 @@
         <button class="btn-voltar" onclick="voltarHome()">⬅ Voltar</button>
         
         <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 id="titulo-detalhe" style="margin: 0;">Histórico</h3>
-                <button id="btn-sync-strava" onclick="sincronizarStrava()" style="display: none; background: #ff9800; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
-                    🔄 Sincronizar Strava
-                </button>
-            </div>
+            <h3 id="titulo-detalhe">Histórico</h3>
             
             <div id="lista-especifica"></div>
 
@@ -148,32 +135,56 @@
             </div>
 
             <div id="area-kanban-corridas" style="display: none;">
-                <div class="kanban-container kanban-semana">
-                    <div class="kanban-coluna-dia" data-dia="0">
+                <div class="header-corridas">
+                    <div class="header-corridas-left">
+                        <button class="btn-navegar-semana" onclick="navegarSemana(-1)" title="Semana anterior">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+                        <span class="info-semana" id="info-semana">Carregando...</span>
+                        <button class="btn-navegar-semana" onclick="navegarSemana(1)" title="Próxima semana">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                    <button id="btn-sync-strava-corridas" onclick="sincronizarStrava()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        Sincronizar Strava
+                    </button>
+                </div>
+                
+                <div class="kanban-semana">
+                    <div class="kanban-coluna-dia">
                         <div class="kanban-titulo-dia">Domingo</div>
                         <div id="corridas-domingo"></div>
                     </div>
-                    <div class="kanban-coluna-dia" data-dia="1">
+                    <div class="kanban-coluna-dia">
                         <div class="kanban-titulo-dia">Segunda</div>
                         <div id="corridas-segunda"></div>
                     </div>
-                    <div class="kanban-coluna-dia" data-dia="2">
+                    <div class="kanban-coluna-dia">
                         <div class="kanban-titulo-dia">Terça</div>
                         <div id="corridas-terca"></div>
                     </div>
-                    <div class="kanban-coluna-dia" data-dia="3">
+                    <div class="kanban-coluna-dia">
                         <div class="kanban-titulo-dia">Quarta</div>
                         <div id="corridas-quarta"></div>
                     </div>
-                    <div class="kanban-coluna-dia" data-dia="4">
+                    <div class="kanban-coluna-dia">
                         <div class="kanban-titulo-dia">Quinta</div>
                         <div id="corridas-quinta"></div>
                     </div>
-                    <div class="kanban-coluna-dia" data-dia="5">
+                    <div class="kanban-coluna-dia">
                         <div class="kanban-titulo-dia">Sexta</div>
                         <div id="corridas-sexta"></div>
                     </div>
-                    <div class="kanban-coluna-dia" data-dia="6">
+                    <div class="kanban-coluna-dia">
                         <div class="kanban-titulo-dia">Sábado</div>
                         <div id="corridas-sabado"></div>
                     </div>
@@ -201,6 +212,6 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script/script.js"></script>
 </body>
 </html>

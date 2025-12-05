@@ -1,5 +1,5 @@
 node_modules
 hobbies.db
 .env
-gerar-strava-token.js
-final_token.js
+test*.js
+verificar*.js

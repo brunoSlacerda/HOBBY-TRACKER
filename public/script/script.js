@@ -1,6 +1,9 @@
 // Variável global para guardar os dados e não precisar baixar toda hora
 let cacheDados = null;
 
+// Variável global para armazenar a semana atual sendo visualizada
+let semanaAtual = null; // Será um objeto { inicio: Date, fim: Date }
+
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM carregado, carregando dados...');
     await carregarDadosNoCache(); // Baixa os dados assim que abre o site
@@ -20,19 +23,30 @@ async function abrirDetalhes(categoria) {
         document.getElementById('tela-home').classList.remove('ativa');
         document.getElementById('tela-detalhes').classList.add('ativa');
 
-        // 2. Atualiza o Título
-        const titulos = {
-            'livros': '📚 Meus Livros',
-            'corridas': '🏃‍♂️ Minhas Corridas',
-            'treinos': '💪 Meus Treinos',
-            'trabalho': '💼 Produtividade'
-        };
-        document.getElementById('titulo-detalhe').innerText = titulos[categoria];
-
-        // 3. Mostra/oculta botão de sincronizar Strava
-        const btnSync = document.getElementById('btn-sync-strava');
-        if (btnSync) {
-            btnSync.style.display = categoria === 'corridas' ? 'block' : 'none';
+        // 2. Controle de cabeçalho
+        const cabecalhoPadrao = document.getElementById('cabecalho-detalhes-padrao');
+        
+        if (categoria === 'corridas') {
+            // Se for corridas, esconde o cabeçalho padrão (pois tem um próprio)
+            if (cabecalhoPadrao) cabecalhoPadrao.style.display = 'none';
+            // Inicializa semana atual se não estiver definida
+            if (!semanaAtual) {
+                semanaAtual = calcularSemanaAtual();
+            }
+        } else {
+            // Para outros, mostra o cabeçalho padrão e atualiza o título
+            if (cabecalhoPadrao) cabecalhoPadrao.style.display = 'flex';
+            
+            const titulos = {
+                'livros': '📚 Meus Livros',
+                'treinos': '💪 Meus Treinos',
+                'trabalho': '💼 Produtividade'
+            };
+            document.getElementById('titulo-detalhe').innerText = titulos[categoria] || 'Histórico';
+            
+            // Esconde botão sync antigo (só pra garantir)
+            const btnSyncAntigo = document.getElementById('btn-sync-strava');
+            if (btnSyncAntigo) btnSyncAntigo.style.display = 'none';
         }
 
         // 4. Garante que os dados estão carregados antes de renderizar
@@ -225,6 +239,32 @@ function renderizarListaEspecifica(categoria) {
                 return;
             }
             
+            // Inicializa semana atual se não estiver definida
+            if (!semanaAtual) {
+                semanaAtual = calcularSemanaAtual();
+            }
+            
+            // Atualiza exibição da semana no header
+            atualizarInfoSemana();
+            
+            // Filtra corridas pela semana selecionada
+            const corridasDaSemana = lista.filter(item => {
+                try {
+                    const data = new Date(item.data);
+                    if (isNaN(data.getTime())) return false;
+                    
+                    // Remove horas para comparar apenas datas
+                    const dataItem = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+                    const inicioSemana = new Date(semanaAtual.inicio.getFullYear(), semanaAtual.inicio.getMonth(), semanaAtual.inicio.getDate());
+                    const fimSemana = new Date(semanaAtual.fim.getFullYear(), semanaAtual.fim.getMonth(), semanaAtual.fim.getDate());
+                    
+                    return dataItem >= inicioSemana && dataItem <= fimSemana;
+                } catch (err) {
+                    console.error('Erro ao filtrar item:', item, err);
+                    return false;
+                }
+            });
+            
             // Agrupa corridas por dia da semana
             const corridasPorDia = {
                 0: [], // Domingo
@@ -236,7 +276,7 @@ function renderizarListaEspecifica(categoria) {
                 6: []  // Sábado
             };
             
-            lista.forEach(item => {
+            corridasDaSemana.forEach(item => {
                 try {
                     const data = new Date(item.data);
                     if (isNaN(data.getTime())) {
@@ -262,7 +302,7 @@ function renderizarListaEspecifica(categoria) {
                 const corridasDoDia = corridasPorDia[index];
                 
                 if (corridasDoDia.length === 0) {
-                    coluna.innerHTML = '<div style="text-align: center; color: #999; font-size: 0.8em; padding: 20px;">Sem corridas</div>';
+                    coluna.innerHTML = '<div class="sem-corridas">Sem corridas</div>';
                     return;
                 }
                 
@@ -271,24 +311,40 @@ function renderizarListaEspecifica(categoria) {
                     const hora = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     const dataFormatada = data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
                     
+                    // Define classe baseada no tipo de treino para estilização
+                    let classeTipo = '';
+                    let badgeClass = '';
+                    const tipo = (item.tipo_treino || '').toLowerCase();
+                    
+                    if (tipo.includes('longo')) {
+                        classeTipo = 'tipo-longo';
+                        badgeClass = 'badge-longo';
+                    } else if (tipo.includes('tiro')) {
+                        classeTipo = 'tipo-tiro';
+                        badgeClass = 'badge-tiro';
+                    } else {
+                        classeTipo = 'tipo-rodagem';
+                        badgeClass = 'badge-rodagem';
+                    }
+
                     const html = `
-                        <div class="card-corrida">
+                        <div class="card-corrida ${classeTipo}">
                             <div class="card-corrida-header">
-                                <div>
-                                    <div class="card-corrida-title">
-                                        ${item.strava_name ? `🏃‍♂️ ${item.strava_name}` : '🏃‍♂️ Corrida'}
-                                    </div>
-                                    ${item.strava_id ? '<span class="card-corrida-strava">(Strava)</span>' : ''}
+                                <div class="card-corrida-title">
+                                    ${item.strava_name ? `🏃‍♂️ ${item.strava_name}` : '🏃‍♂️ Corrida'}
+                                    ${item.strava_id ? '<span class="card-corrida-strava"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065l5.154 10.172 5.154-10.172h-3.065zM9.658 13.828h3.065l-5.154-10.172-5.154 10.172h3.065l2.089-4.117z"/></svg> Strava</span>' : ''}
                                 </div>
-                                <button class="card-corrida-delete" onclick="deletarItem('corridas', ${item.id})" title="Deletar">🗑️</button>
+                                <button class="card-corrida-delete" onclick="deletarItem('corridas', ${item.id})" title="Deletar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
                             </div>
                             <div class="card-corrida-metrics">
-                                <div>📏 <strong>${item.distancia_km} km</strong></div>
-                                <div>⏱️ <strong>${item.tempo_minutos} min</strong></div>
-                                ${item.pace ? `<div>⚡ <strong>${item.pace}</strong></div>` : ''}
-                                ${item.average_speed_kmh ? `<div>🚀 <strong>${item.average_speed_kmh} km/h</strong></div>` : ''}
-                                ${item.total_elevation_gain > 0 ? `<div>⛰️ <strong>${item.total_elevation_gain} m</strong></div>` : ''}
-                                <div class="card-corrida-badge">${item.tipo_treino || 'Rodagem'}</div>
+                                <div class="metric-item"><span class="metric-icon">📏</span> <span class="metric-value">${item.distancia_km} km</span></div>
+                                <div class="metric-item"><span class="metric-icon">⏱️</span> <span class="metric-value">${item.tempo_minutos} min</span></div>
+                                ${item.pace ? `<div class="metric-item"><span class="metric-icon">⚡</span> <span class="metric-value">${item.pace}</span></div>` : ''}
+                                ${item.average_speed_kmh ? `<div class="metric-item"><span class="metric-icon">🚀</span> <span class="metric-value">${item.average_speed_kmh} km/h</span></div>` : ''}
+                                ${item.total_elevation_gain > 0 ? `<div class="metric-item"><span class="metric-icon">⛰️</span> <span class="metric-value">${item.total_elevation_gain} m</span></div>` : ''}
+                                <div><span class="card-corrida-badge ${badgeClass}">${item.tipo_treino || 'Rodagem'}</span></div>
                             </div>
                             <div class="card-corrida-time">
                                 ${dataFormatada} às ${hora}
@@ -459,48 +515,92 @@ async function salvarHobby() {
     const tipo = document.getElementById('tipo').value;
     if(!tipo) return alert("Selecione um tipo!");
     
-    // ... (Aqui vai a mesma lógica de pegar os valores dos inputs que fizemos antes)
-    // Para economizar espaço na resposta, vou resumir:
-    // Copie a lógica do 'corpo' e 'url' do seu script anterior aqui.
-    
-    // ATENÇÃO: Vou colocar a lógica resumida abaixo para funcionar:
     let url = `/registrar/${tipo}`;
     let corpo = {};
     
     if (tipo === 'livro') {
+        const titulo = document.getElementById('livro-titulo').value.trim();
+        const autor = document.getElementById('livro-autor').value.trim();
+        const paginas = document.getElementById('livro-paginas').value;
+        
+        if (!titulo) return alert("Preencha o título do livro!");
+        if (!autor) return alert("Preencha o autor do livro!");
+        if (!paginas || paginas <= 0) return alert("Preencha o total de páginas!");
+        
         corpo = {
-            titulo: document.getElementById('livro-titulo').value,
-            autor: document.getElementById('livro-autor').value,
-            paginas: document.getElementById('livro-paginas').value,
-            capa: document.getElementById('livro-capa').value
+            titulo: titulo,
+            autor: autor,
+            paginas: parseInt(paginas),
+            capa: document.getElementById('livro-capa').value || ''
         };
     } else if (tipo === 'corrida') {
+        const distancia = document.getElementById('corrida-dist').value;
+        const tempo = document.getElementById('corrida-tempo').value;
+        
+        if (!distancia || distancia <= 0) return alert("Preencha a distância!");
+        if (!tempo || tempo <= 0) return alert("Preencha o tempo!");
+        
         corpo = {
-            distancia: document.getElementById('corrida-dist').value,
-            tempo: document.getElementById('corrida-tempo').value,
+            distancia: parseFloat(distancia),
+            tempo: parseInt(tempo),
             tipo: document.getElementById('corrida-tipo').value,
-            local: document.getElementById('corrida-local').value
+            local: document.getElementById('corrida-local').value || 'Não informado'
         };
     } else if (tipo === 'treino') {
-        corpo = { foco: document.getElementById('treino-foco').value, duracao: document.getElementById('treino-duracao').value, carga: document.getElementById('treino-carga').value };
+        const foco = document.getElementById('treino-foco').value.trim();
+        const duracao = document.getElementById('treino-duracao').value;
+        
+        if (!foco) return alert("Preencha o foco do treino!");
+        if (!duracao || duracao <= 0) return alert("Preencha a duração!");
+        
+        corpo = { 
+            foco: foco, 
+            duracao: parseInt(duracao), 
+            carga: document.getElementById('treino-carga').value 
+        };
     } else if (tipo === 'trabalho') {
-        corpo = { tarefas: document.getElementById('trab-tarefas').value, produtividade: document.getElementById('trab-prod').value, obs: document.getElementById('trab-obs').value };
+        const tarefas = document.getElementById('trab-tarefas').value;
+        
+        if (!tarefas || tarefas <= 0) return alert("Preencha a quantidade de tarefas!");
+        
+        corpo = { 
+            tarefas: parseInt(tarefas), 
+            produtividade: parseInt(document.getElementById('trab-prod').value), 
+            obs: document.getElementById('trab-obs').value || '' 
+        };
     }
 
-    await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(corpo)
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(corpo)
+        });
 
-    alert("Salvo!");
-    // Limpa campos
-    document.querySelectorAll('input').forEach(i => i.value = '');
-    
-    // Recarrega os dados e volta pra home
-    await carregarDadosNoCache();
-    // Opcional: Se quiser ir direto pro detalhe do que salvou:
-    // abrirDetalhes(tipo + 's'); // ajuste de plural (livro -> livros)
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.erro || 'Erro ao salvar');
+        }
+
+        alert("✅ " + (data.mensagem || "Salvo com sucesso!"));
+        
+        // Limpa campos
+        document.getElementById('tipo').value = '';
+        document.querySelectorAll('.secao-hobby').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('input').forEach(i => {
+            if (i.type !== 'hidden') i.value = '';
+        });
+        document.querySelectorAll('select').forEach(s => {
+            if (s.id !== 'tipo') s.selectedIndex = 0;
+        });
+        
+        // Recarrega os dados
+        await carregarDadosNoCache();
+    } catch (err) {
+        alert("❌ Erro: " + err.message);
+        console.error('Erro ao salvar:', err);
+    }
 }
 
 async function deletarItem(tabela, id) {
@@ -520,13 +620,13 @@ function verificarTipo() {
 // --- FUNÇÃO: Sincronizar Corridas do Strava ---
 async function sincronizarStrava() {
     // Encontra o botão que foi clicado
-    const btn = event ? event.target : document.querySelector('#btn-sync-strava') || document.querySelector('button[onclick*="sincronizarStrava"]');
-    const textoOriginal = btn ? btn.textContent : 'Sincronizar';
+    const btn = (event && event.target) ? event.target.closest('button') : (document.getElementById('btn-sync-strava-corridas') || document.getElementById('btn-sync-strava'));
+    const textoOriginal = btn ? btn.innerHTML : 'Sincronizar';
     
     try {
         if (btn) {
             btn.disabled = true;
-            btn.textContent = '⏳ Sincronizando...';
+            btn.innerHTML = '⏳ Sincronizando...';
         }
 
         const response = await fetch('/sincronizar/strava', {
@@ -568,7 +668,7 @@ async function sincronizarStrava() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = textoOriginal;
+            btn.innerHTML = textoOriginal;
         }
     }
 }
@@ -599,4 +699,70 @@ async function buscarLivro() {
         document.getElementById('livro-capa').value = capaUrl;
         divRes.innerHTML = `✅ ${info.title}`;
     } else { divRes.innerHTML = "❌ Nada."; }
+}
+
+// --- FUNÇÕES DE NAVEGAÇÃO DE SEMANAS (CORRIDAS) ---
+
+/**
+ * Calcula o início e fim da semana atual (Domingo a Sábado)
+ * @param {Date} data - Data de referência (opcional, usa hoje se não fornecido)
+ * @returns {Object} { inicio: Date, fim: Date }
+ */
+function calcularSemana(data = new Date()) {
+    const hoje = new Date(data);
+    const diaSemana = hoje.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+    
+    // Calcula o domingo da semana (início)
+    const inicio = new Date(hoje);
+    inicio.setDate(hoje.getDate() - diaSemana);
+    inicio.setHours(0, 0, 0, 0);
+    
+    // Calcula o sábado da semana (fim)
+    const fim = new Date(inicio);
+    fim.setDate(inicio.getDate() + 6);
+    fim.setHours(23, 59, 59, 999);
+    
+    return { inicio, fim };
+}
+
+/**
+ * Calcula a semana atual (primeira vez que abre)
+ */
+function calcularSemanaAtual() {
+    return calcularSemana(new Date());
+}
+
+/**
+ * Navega para próxima ou anterior semana
+ * @param {number} direcao - 1 para próxima semana, -1 para semana anterior
+ */
+function navegarSemana(direcao) {
+    if (!semanaAtual) {
+        semanaAtual = calcularSemanaAtual();
+    }
+    
+    // Cria uma nova data baseada no início da semana atual
+    const novaData = new Date(semanaAtual.inicio);
+    novaData.setDate(semanaAtual.inicio.getDate() + (direcao * 7));
+    
+    // Calcula a nova semana
+    semanaAtual = calcularSemana(novaData);
+    
+    // Re-renderiza as corridas
+    renderizarListaEspecifica('corridas');
+}
+
+/**
+ * Atualiza a informação da semana exibida no header
+ */
+function atualizarInfoSemana() {
+    if (!semanaAtual) return;
+    
+    const infoSemanaEl = document.getElementById('info-semana');
+    if (!infoSemanaEl) return;
+    
+    const inicioFormatado = semanaAtual.inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const fimFormatado = semanaAtual.fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    
+    infoSemanaEl.textContent = `${inicioFormatado} - ${fimFormatado}`;
 }

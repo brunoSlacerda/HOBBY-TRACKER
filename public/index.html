@@ -111,6 +111,25 @@
         <div class="card">
             <h3 id="titulo-detalhe">Histórico</h3>
             
+            <!-- Citação do Dia (só aparece para livros) -->
+            <div id="citacao-do-dia-container" style="display: none;">
+                <div class="citacao-do-dia">
+                    <div class="citacao-header">
+                        <span class="citacao-label">💭 Citação do Dia</span>
+                        <button class="btn-gerenciar-citacoes" onclick="abrirModalCitacoes()" title="Gerenciar citações">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="citacao-texto" id="citacao-texto">
+                        Carregando citação...
+                    </div>
+                    <div class="citacao-fonte" id="citacao-fonte"></div>
+                </div>
+            </div>
+            
             <div id="lista-especifica"></div>
 
             <div id="area-kanban-livros" style="display: none;">
@@ -230,7 +249,45 @@
         </div>
     </div>
 
+    <!-- Modal de Gerenciamento de Citações -->
+    <div id="modal-citacoes" class="modal-overlay">
+        <div class="modal-content modal-citacoes">
+            <div class="modal-header">
+                <h3>📝 Gerenciar Citações</h3>
+                <button class="btn-fechar-modal" onclick="fecharModalCitacoes()">×</button>
+            </div>
+            
+            <div class="citacoes-livro-selector">
+                <label>Selecione o livro:</label>
+                <select id="select-livro-citacoes" onchange="carregarCitacoesLivro()">
+                    <option value="">-- Selecione um livro --</option>
+                </select>
+            </div>
+            
+            <div id="area-citacoes-livro" style="display: none;">
+                <div class="citacoes-header">
+                    <h4 id="titulo-livro-citacoes"></h4>
+                    <button class="btn-adicionar-citacao" onclick="adicionarNovaCitacao()">+ Adicionar Citação</button>
+                </div>
+                
+                <div id="lista-citacoes-livro" class="lista-citacoes">
+                    <!-- Citações serão inseridas aqui -->
+                </div>
+            </div>
+            
+            <div id="form-nova-citacao" style="display: none;">
+                <label>Nova Citação:</label>
+                <textarea id="input-nova-citacao" placeholder="Digite a citação aqui..." rows="4"></textarea>
+                <div style="text-align: right; margin-top: 10px;">
+                    <button onclick="cancelarNovaCitacao()" style="background: #ccc; width: auto;">Cancelar</button>
+                    <button onclick="salvarNovaCitacao()" style="background: #28a745; width: auto;">💾 Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="script/script.js"></script>
     <script src="script/corrida.js"></script>
+    <script src="script/citacoes.js"></script>
 </body>
 </html>

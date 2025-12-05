@@ -159,6 +159,16 @@ const criarTabelas = async () => {
                 data TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Tabela CITAÇÕES
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS citacoes (
+                id SERIAL PRIMARY KEY,
+                livro_id INTEGER REFERENCES livros(id) ON DELETE CASCADE,
+                texto TEXT NOT NULL,
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
         
         console.log('✅ Tabelas verificadas/criadas com sucesso!');
     } catch (err) {

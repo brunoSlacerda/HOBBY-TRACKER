@@ -303,6 +303,99 @@ app.post('/sincronizar/strava', async (req, res) => {
     }
 });
 
+// --- ROTAS: Citações ---
+// GET: Buscar todas as citações de um livro
+app.get('/citacoes/:livroId', async (req, res) => {
+    const { livroId } = req.params;
+    try {
+        const result = await db.query(
+            'SELECT * FROM citacoes WHERE livro_id = $1 ORDER BY data_criacao DESC',
+            [livroId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(400).json({ erro: err.message });
+    }
+});
+
+// GET: Buscar citação do dia (seleciona uma citação aleatória baseada na data)
+app.get('/citacao-do-dia', async (req, res) => {
+    try {
+        // Usa a data atual como seed para garantir que a mesma citação apareça no mesmo dia
+        const hoje = new Date();
+        const seed = hoje.getFullYear() * 10000 + hoje.getMonth() * 100 + hoje.getDate();
+        
+        // Busca todas as citações com informações do livro
+        const result = await db.query(`
+            SELECT c.id, c.texto, c.livro_id, l.titulo, l.autor
+            FROM citacoes c
+            INNER JOIN livros l ON c.livro_id = l.id
+            ORDER BY c.id
+        `);
+        
+        if (result.rows.length === 0) {
+            return res.json({ citacao: null });
+        }
+        
+        // Seleciona uma citação baseada no seed do dia (determinístico)
+        const index = seed % result.rows.length;
+        const citacao = result.rows[index];
+        
+        res.json({ citacao });
+    } catch (err) {
+        res.status(400).json({ erro: err.message });
+    }
+});
+
+// POST: Criar nova citação
+app.post('/citacoes', async (req, res) => {
+    const { livro_id, texto } = req.body;
+    try {
+        if (!livro_id || !texto || texto.trim() === '') {
+            return res.status(400).json({ erro: 'Livro e texto são obrigatórios' });
+        }
+        const result = await db.query(
+            'INSERT INTO citacoes (livro_id, texto) VALUES ($1, $2) RETURNING *',
+            [livro_id, texto.trim()]
+        );
+        res.json({ mensagem: 'Citação salva!', citacao: result.rows[0] });
+    } catch (err) {
+        res.status(400).json({ erro: err.message });
+    }
+});
+
+// PUT: Atualizar citação
+app.put('/citacoes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { texto } = req.body;
+    try {
+        if (!texto || texto.trim() === '') {
+            return res.status(400).json({ erro: 'Texto é obrigatório' });
+        }
+        const result = await db.query(
+            'UPDATE citacoes SET texto = $1 WHERE id = $2 RETURNING *',
+            [texto.trim(), id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ erro: 'Citação não encontrada' });
+        }
+        res.json({ mensagem: 'Citação atualizada!', citacao: result.rows[0] });
+    } catch (err) {
+        res.status(400).json({ erro: err.message });
+    }
+});
+
+// DELETE: Deletar citação
+app.delete('/citacoes/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query('DELETE FROM citacoes WHERE id = $1', [id]);
+        res.json({ mensagem: 'Citação deletada!' });
+    } catch (err) {
+        res.status(400).json({ erro: err.message });
+    }
+});
+
 // --- ROTA GERAL: Resumo ---
 app.get('/resumo', async (req, res) => {
     try {

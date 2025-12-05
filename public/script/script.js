@@ -60,6 +60,8 @@ async function abrirDetalhes(categoria) {
             const tituloEl = document.getElementById('titulo-detalhe');
             tituloEl.innerText = 'Minhas Corridas';
             tituloEl.classList.add('titulo-corridas');
+            // Esconde citação do dia
+            document.getElementById('citacao-do-dia-container').style.display = 'none';
             // Inicializa semana atual se não estiver definida
             inicializarCorridas();
         } else {
@@ -75,6 +77,13 @@ async function abrirDetalhes(categoria) {
                 'trabalho': '💼 Produtividade'
             };
             tituloEl.innerText = titulos[categoria] || 'Histórico';
+            
+            // Se for livros, mostra e carrega citação do dia
+            if (categoria === 'livros') {
+                carregarCitacaoDoDia();
+            } else {
+                document.getElementById('citacao-do-dia-container').style.display = 'none';
+            }
             
             // Esconde botão sync antigo (só pra garantir)
             const btnSyncAntigo = document.getElementById('btn-sync-strava');

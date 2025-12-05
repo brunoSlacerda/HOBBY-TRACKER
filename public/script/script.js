@@ -80,9 +80,29 @@ async function abrirDetalhes(categoria) {
             
             // Se for livros, mostra e carrega citação do dia
             if (categoria === 'livros') {
-                carregarCitacaoDoDia();
+                // Garante que o container está visível antes de carregar
+                const container = document.getElementById('citacao-do-dia-container');
+                if (container) {
+                    container.style.display = 'block';
+                    // Aguarda um pouco para garantir que o DOM está pronto
+                    setTimeout(() => {
+                        if (typeof carregarCitacaoDoDia === 'function') {
+                            carregarCitacaoDoDia();
+                        } else {
+                            console.warn('Função carregarCitacaoDoDia não encontrada. Verifique se citacoes.js está carregado.');
+                            // Mostra mensagem mesmo sem a função
+                            const textoEl = document.getElementById('citacao-texto');
+                            if (textoEl) {
+                                textoEl.textContent = 'Carregando...';
+                            }
+                        }
+                    }, 100);
+                }
             } else {
-                document.getElementById('citacao-do-dia-container').style.display = 'none';
+                const container = document.getElementById('citacao-do-dia-container');
+                if (container) {
+                    container.style.display = 'none';
+                }
             }
             
             // Esconde botão sync antigo (só pra garantir)

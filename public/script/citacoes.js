@@ -7,15 +7,28 @@ let livroSelecionadoId = null;
 // Carregar citação do dia
 async function carregarCitacaoDoDia() {
     try {
-        const response = await fetch('/citacao-do-dia');
-        const data = await response.json();
-        
         const container = document.getElementById('citacao-do-dia-container');
         const textoEl = document.getElementById('citacao-texto');
         const fonteEl = document.getElementById('citacao-fonte');
         
+        if (!container || !textoEl || !fonteEl) {
+            console.error('Elementos da citação do dia não encontrados');
+            return;
+        }
+        
+        const response = await fetch('/citacao-do-dia');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
         if (!data.citacao) {
-            container.style.display = 'none';
+            // Se não houver citação, mostra mensagem informativa mas mantém o container visível
+            textoEl.textContent = 'Nenhuma citação cadastrada ainda.';
+            fonteEl.innerHTML = '<em style="opacity: 0.8;">Clique no ícone de edição acima para adicionar citações aos seus livros!</em>';
+            container.style.display = 'block';
             return;
         }
         
@@ -24,7 +37,14 @@ async function carregarCitacaoDoDia() {
         container.style.display = 'block';
     } catch (err) {
         console.error('Erro ao carregar citação do dia:', err);
-        document.getElementById('citacao-do-dia-container').style.display = 'none';
+        const container = document.getElementById('citacao-do-dia-container');
+        if (container) {
+            const textoEl = document.getElementById('citacao-texto');
+            if (textoEl) {
+                textoEl.textContent = 'Erro ao carregar citação. Verifique o console para mais detalhes.';
+            }
+            container.style.display = 'block';
+        }
     }
 }
 
